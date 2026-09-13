@@ -31,6 +31,10 @@ class TestSandbox:
         """Sandbox runs in a temp dir, so it must not see project files."""
         result = run_in_sandbox("import os; print(os.path.exists('main.py'))")
         assert result["stdout"] == "False"
+    def test_truncates_huge_output(self):
+        result = run_in_sandbox("for i in range(100000): print('x' * 100)")
+        assert len(result["stdout"]) < 6000
+        assert "truncated" in result["stdout"]
 
 
 class TestDocGen:
