@@ -12,6 +12,10 @@ Owner: Track B.
 """
 import pytesseract
 from PIL import Image
+from .. import config
+
+if config.TESSERACT_CMD:
+    pytesseract.pytesseract.tesseract_cmd = config.TESSERACT_CMD
 
 
 def ocr_image(image_path: str) -> str:
