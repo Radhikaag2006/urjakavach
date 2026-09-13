@@ -18,6 +18,12 @@ import os
 
 from .. import config
 
+MAX_OUTPUT_CHARS = 5000
+
+def _truncate(text: str) -> str:
+    if len(text) > MAX_OUTPUT_CHARS:
+        return text[:MAX_OUTPUT_CHARS] + f"\n... [truncated, {len(text) - MAX_OUTPUT_CHARS} more characters]"
+    return text
 
 def run_in_sandbox(code: str, timeout_sec: int | None = None) -> dict:
     timeout_sec = timeout_sec or config.SANDBOX_TIMEOUT_SEC
@@ -37,8 +43,8 @@ def run_in_sandbox(code: str, timeout_sec: int | None = None) -> dict:
             )
             return {
                 "ok": result.returncode == 0,
-                "stdout": result.stdout.strip(),
-                "stderr": result.stderr.strip(),
+                "stdout": _truncate(result.stdout.strip()),
+                "stderr": _truncate(result.stderr.strip()),
                 "returncode": result.returncode,
             }
         except subprocess.TimeoutExpired:
