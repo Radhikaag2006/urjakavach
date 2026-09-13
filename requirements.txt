@@ -1,0 +1,20 @@
+# Core backend
+fastapi
+uvicorn
+python-multipart
+
+# Tools
+pytesseract          # needs the Tesseract OS binary too - see docs/SETUP.md
+Pillow
+python-docx
+
+# Model layer
+requests
+
+# Knowledge base / RAG (organisation-specific grounding)
+chromadb
+sentence-transformers
+
+# Tests
+pytest
+httpx

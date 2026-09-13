@@ -1,0 +1,27 @@
+# Model weights — NEVER commit these, they are multi-GB.
+# Everyone downloads the same file locally (see docs/SETUP.md).
+*.gguf
+*.bin
+*.safetensors
+models/
+
+# Local environment
+.env
+venv/
+env/
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# Generated at runtime — not source
+app/outputs/*.docx
+app/logs/*.log
+app/samples/upload_*
+app/kb/index/
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
