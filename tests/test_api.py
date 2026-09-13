@@ -82,6 +82,14 @@ class TestCodeFlow:
         res = client.post("/api/tasks/code", data={"prompt": "   "})
         assert res.status_code == 400
 
+    def test_rejects_whitespace_only_prompt(self):
+        res = client.post("/api/tasks/code", data={"prompt": "     "})
+        assert res.status_code == 400
+
+    def test_rejects_overly_long_prompt(self):
+        res = client.post("/api/tasks/code", data={"prompt": "x" * 3000})
+        assert res.status_code == 400
+
 
 class TestActivityLog:
     def test_log_captures_every_stage(self):

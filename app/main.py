@@ -94,6 +94,8 @@ def submit_code_task(prompt: str = Form(...)):
     clear_log()
     if not prompt.strip():
         raise HTTPException(status_code=400, detail="Prompt must not be empty")
+    if len(prompt) > 2000:
+        raise HTTPException(status_code=400, detail="Prompt too long (max 2000 characters)")
     result = orchestrator.run_code_flow(prompt)
     return JSONResponse(result)
 
