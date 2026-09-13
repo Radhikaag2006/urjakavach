@@ -51,6 +51,22 @@ class TestDocumentFlow:
         res = client.get("/api/outputs/does_not_exist.docx")
         assert res.status_code == 404
 
+    def test_rejects_empty_upload(self):
+        res = client.post(
+            "/api/tasks/document",
+            data={"use_sample": "false"},
+            files={"file": ("empty.png", b"", "image/png")},
+        )
+        assert res.status_code == 400
+
+    def test_rejects_corrupt_image(self):
+        res = client.post(
+            "/api/tasks/document",
+            data={"use_sample": "false"},
+            files={"file": ("fake.png", b"this is not a real image", "image/png")},
+        )
+        assert res.status_code == 400
+
 
 class TestCodeFlow:
     @pytest.mark.parametrize("prompt", ["average", "prime", "sort"])

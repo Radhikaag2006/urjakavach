@@ -60,9 +60,17 @@ def submit_document_task(
     clear_log()
 
     if file is not None and not use_sample:
+        MAX_UPLOAD_BYTES = 15 * 1024 * 1024  # 15 MB
+
+        content = file.file.read()
+        if len(content) > MAX_UPLOAD_BYTES:
+            raise HTTPException(status_code=413, detail="File too large (max 15MB)")
+        if len(content) == 0:
+            raise HTTPException(status_code=400, detail="Uploaded file is empty")
+
         upload_path = os.path.join(config.SAMPLES_DIR, f"upload_{file.filename}")
         with open(upload_path, "wb") as f:
-            f.write(file.file.read())
+            f.write(content)
         image_path = upload_path
         source_name = file.filename
     else:
@@ -75,7 +83,7 @@ def submit_document_task(
     try:
         result = orchestrator.run_document_flow(image_path, source_name)
     except RuntimeError as e:
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
     return JSONResponse(result)
 
