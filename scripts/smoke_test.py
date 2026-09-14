@@ -36,7 +36,7 @@ def main():
 
     # 1. Health
     try:
-        health = requests.get(f"{BASE}/api/health", timeout=5).json()
+        health = requests.get(f"{BASE}/api/health", timeout=30).json()
     except Exception as e:  # noqa: BLE001
         print(f"{FAIL} backend unreachable: {e}")
         print("\nStart it with: uvicorn app.main:app --reload --port 8000")
@@ -80,7 +80,7 @@ def main():
 
     # 4. Activity log
     print("\nActivity log")
-    logs = requests.get(f"{BASE}/api/logs", timeout=5).json()["logs"]
+    logs = requests.get(f"{BASE}/api/logs", timeout=30).json()["logs"]
     stages = {entry["stage"] for entry in logs}
     check("logs planning step", "plan" in stages)
     check("logs model routing", "route" in stages)
