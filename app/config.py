@@ -11,11 +11,15 @@ name anywhere else in the codebase, it belongs in this file instead.
 import os
 import sys
 
+from dotenv import load_dotenv
+
 # --------------------------------------------------------------------
 # Paths — always derived, never hardcoded, so they work on every OS
 # --------------------------------------------------------------------
 APP_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(APP_DIR)
+
+load_dotenv(os.path.join(PROJECT_ROOT, ".env"))
 
 SAMPLES_DIR = os.path.join(APP_DIR, "samples")
 OUTPUTS_DIR = os.path.join(APP_DIR, "outputs")
@@ -37,7 +41,7 @@ PYTHON_EXECUTABLE = sys.executable
 # Flip to "false" to fall back to the deterministic stub. This is the
 # safety net: if the local models misbehave right before recording the
 # demo, set USE_REAL_MODEL=false and everything still works.
-USE_REAL_MODEL = os.getenv("USE_REAL_MODEL", "false").lower() == "true"
+USE_REAL_MODEL = os.getenv("USE_REAL_MODEL", "false").strip().lower() == "true"
 
 REASONING_MODEL_URL = os.getenv(
     "REASONING_MODEL_URL", "http://localhost:8080/v1/chat/completions"
