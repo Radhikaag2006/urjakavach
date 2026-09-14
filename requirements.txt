@@ -2,6 +2,7 @@
 fastapi
 uvicorn
 python-multipart
+python-dotenv
 
 # Tools
 pytesseract          # needs the Tesseract OS binary too - see docs/SETUP.md
