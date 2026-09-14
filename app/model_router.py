@@ -146,6 +146,26 @@ def generate_code(prompt: str) -> tuple[str, str]:
 
     return _stub_generate_code(prompt), "stub"
 
+def chat(
+    history: list[dict],
+    kb_context: str = "",
+    attached_text: str = "",
+) -> tuple[str, str]:
+    """General-purpose chat reply, grounded on kb_context/attached_text
+    when present. Returns (reply, source), same pattern as the other
+    task functions."""
+    if config.USE_REAL_MODEL:
+        try:
+            messages = prompts.build_chat_prompt(
+                history, kb_context, attached_text
+            )
+            reply = _call_model("reasoning", messages)
+            if reply.strip():
+                return reply, "model"
+        except Exception:  # noqa: BLE001
+            pass
+    return _stub_chat_reply(history, attached_text), "stub"
+
 
 # --------------------------------------------------------------------
 # Response parsing
@@ -190,6 +210,22 @@ def _stub_summarize_findings(raw_text: str) -> list[str]:
     if not findings:
         findings = sentences[:3]
     return findings[:6]
+
+def _stub_chat_reply(
+    history: list[dict],
+    attached_text: str,
+) -> str:
+    last_user = next(
+        (m["content"] for m in reversed(history) if m["role"] == "user"),
+        "",
+    )
+    note = " (stub mode — start the real models for a full answer.)"
+    if attached_text:
+        return (
+            "I looked at the attached content along with your "
+            "message: " + last_user + "." + note
+        )
+    return "You said: " + last_user + "." + note
 
 
 _CODE_TEMPLATES = {

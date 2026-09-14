@@ -224,3 +224,6 @@ models/
 *.gguf
 *.bin
 *.safetensors
+app/kb/index/
+
+app/chat_history/
