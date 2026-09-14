@@ -10,6 +10,9 @@ name anywhere else in the codebase, it belongs in this file instead.
 """
 import os
 import sys
+from dotenv import load_dotenv 
+
+load_dotenv()
 
 # --------------------------------------------------------------------
 # Paths — always derived, never hardcoded, so they work on every OS
