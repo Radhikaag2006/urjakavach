@@ -1,61 +1,49 @@
 /*
- * UrjaKavach frontend logic.
- * Owner: Track C. Pure vanilla JS, no build step, no dependencies —
- * so it also works with zero network access, which is the point.
+ * UrjaKavach frontend logic — Claude-style layout.
+ * Owner: Track C. Pure vanilla JS, no build step, no dependencies.
  */
 
 const API = "http://localhost:8000";
-let uploadedFile = null;
+let uploadedFile = null;      // for the document-flow modal
+let chatAttachment = null;    // for the chat input's attach button
+let currentSessionId = null;
 
 /* ---------------------------------------------------------------- */
-/* Scenario switching                                                */
+/* Theme                                                             */
 /* ---------------------------------------------------------------- */
-function selectScenario(name) {
-  document.getElementById("tab-doc").classList.toggle("active", name === "doc");
-  document.getElementById("tab-code").classList.toggle("active", name === "code");
-  document.getElementById("panel-doc").classList.toggle("panel-hidden", name !== "doc");
-  document.getElementById("panel-code").classList.toggle("panel-hidden", name !== "code");
-  document.getElementById("docInputSection").classList.toggle("panel-hidden", name !== "doc");
-  document.getElementById("codeInputSection").classList.toggle("panel-hidden", name !== "code");
-
-  document.querySelectorAll(".tree-item").forEach(el => el.classList.remove("selected"));
-  document.querySelector('.tree-item[data-panel="' + name + '"]').classList.add("selected");
+function applyTheme(theme) {
+  document.documentElement.setAttribute("data-theme", theme);
+  document.getElementById("themeIcon").textContent =
+    theme === "dark" ? "\u263D" : "\u2600";
+  document.getElementById("themeLabel").textContent =
+    theme === "dark" ? "Dark mode" : "Light mode";
+  try { localStorage.setItem("uk_theme", theme); } catch (e) {}
 }
 
-/* ---------------------------------------------------------------- */
-/* File upload                                                       */
-/* ---------------------------------------------------------------- */
-function toggleSample() {
-  const useSample = document.getElementById("useSampleToggle").checked;
-  const dz = document.getElementById("dropZone");
-  dz.style.opacity = useSample ? 0.5 : 1;
-  dz.style.pointerEvents = useSample ? "none" : "auto";
+function toggleTheme() {
+  const current = document.documentElement.getAttribute("data-theme");
+  applyTheme(current === "dark" ? "light" : "dark");
 }
 
-function onFileChosen(evt) {
-  const file = evt.target.files[0];
-  if (!file) return;
+(function initTheme() {
+  let saved = "dark";
+  try { saved = localStorage.getItem("uk_theme") || "dark"; } catch (e) {}
+  applyTheme(saved);
+})();
 
-  uploadedFile = file;
-  document.getElementById("useSampleToggle").checked = false;
-  toggleSample();
+/* ---------------------------------------------------------------- */
+/* Modals                                                            */
+/* ---------------------------------------------------------------- */
+function openModal(id) { document.getElementById(id).classList.remove("panel-hidden"); }
+function closeModal(id) { document.getElementById(id).classList.add("panel-hidden"); }
 
-  const dz = document.getElementById("dropZone");
-  dz.classList.add("has-file");
-  dz.textContent = file.name;
-
-  const reader = new FileReader();
-  reader.onload = e => {
-    const img = document.getElementById("filePreview");
-    img.src = e.target.result;
-    img.classList.remove("panel-hidden");
-  };
-  reader.readAsDataURL(file);
+/* ---------------------------------------------------------------- */
+/* Activity panel                                                    */
+/* ---------------------------------------------------------------- */
+function toggleActivityPanel() {
+  document.getElementById("activityPanel").classList.toggle("open");
 }
 
-/* ---------------------------------------------------------------- */
-/* Activity log                                                      */
-/* ---------------------------------------------------------------- */
 function stageClass(stage) {
   if (stage === "plan") return "t-plan";
   if (stage === "route") return "t-route";
@@ -92,45 +80,261 @@ async function refreshLogs() {
 }
 
 /* ---------------------------------------------------------------- */
-/* Error display — never fail silently during a demo                 */
+/* Chat message rendering                                            */
 /* ---------------------------------------------------------------- */
-function showError(targetId, err, res, rawText) {
-  let extra = "";
-  if (res) extra += "<div>HTTP status: " + res.status + " " + res.statusText + "</div>";
-  if (rawText) extra += "<pre>" + escapeHtml(rawText.slice(0, 2000)) + "</pre>";
+function hideEmptyState() {
+  const el = document.getElementById("emptyState");
+  if (el) el.remove();
+}
 
-  document.getElementById(targetId).innerHTML =
-    '<div class="error-box"><strong>Something went wrong</strong>' +
-    "<div>" + escapeHtml(err && err.message ? err.message : String(err)) + "</div>" +
-    extra + "</div>";
+function addMessageBubble(role, html) {
+  hideEmptyState();
+  const wrap = document.createElement("div");
+  wrap.className = "msg msg-" + role;
+  wrap.innerHTML =
+    '<div class="msg-avatar">' + (role === "user" ? "R" : "U") + "</div>" +
+    '<div class="msg-body">' + html + "</div>";
+  const container = document.getElementById("chatMessages");
+  container.appendChild(wrap);
+  container.scrollTop = container.scrollHeight;
+  return wrap;
+}
+
+function autoResize(el) {
+  el.style.height = "auto";
+  el.style.height = Math.min(el.scrollHeight, 160) + "px";
+}
+
+function onChatInputKeydown(evt) {
+  if (evt.key === "Enter" && !evt.shiftKey) {
+    evt.preventDefault();
+    sendChatMessage();
+  }
 }
 
 /* ---------------------------------------------------------------- */
-/* Scenario 1 — document flow                                        */
+/* Chat send/receive                                                 */
 /* ---------------------------------------------------------------- */
+function onChatFileChosen(evt) {
+  const file = evt.target.files[0];
+  if (!file) return;
+  chatAttachment = file;
+  const prev = document.getElementById("attachPreview");
+  prev.classList.remove("panel-hidden");
+  prev.innerHTML =
+    '<span>&#128206; ' + escapeHtml(file.name) + '</span>' +
+    '<button onclick="clearChatAttachment()">&times;</button>';
+}
+
+function clearChatAttachment() {
+  chatAttachment = null;
+  document.getElementById("chatFileInput").value = "";
+  const prev = document.getElementById("attachPreview");
+  prev.classList.add("panel-hidden");
+  prev.innerHTML = "";
+}
+
+async function sendChatMessage() {
+  const input = document.getElementById("chatInput");
+  const message = input.value.trim();
+  if (!message) return;
+
+  const sendBtn = document.getElementById("sendBtn");
+  sendBtn.disabled = true;
+
+  addMessageBubble("user", escapeHtml(message));
+  input.value = "";
+  autoResize(input);
+
+  const thinking = addMessageBubble("assistant", '<span class="thinking">thinking&hellip;</span>');
+
+  try {
+    const form = new FormData();
+    form.append("message", message);
+    if (currentSessionId) form.append("session_id", currentSessionId);
+    if (chatAttachment) form.append("file", chatAttachment);
+
+    const res = await fetch(API + "/api/chat", { method: "POST", body: form });
+    const rawText = await res.text();
+    if (!res.ok) throw new Error("Server returned an error: " + rawText.slice(0, 300));
+
+    const data = JSON.parse(rawText);
+    currentSessionId = data.session_id;
+
+    const sourceTag = data.source === "model"
+      ? '<span class="tag tag-ok">local model</span>'
+      : '<span class="tag">stub mode</span>';
+    const groundedTag = data.grounded
+      ? '<span class="tag tag-ok">grounded</span>' : "";
+
+    thinking.querySelector(".msg-body").innerHTML =
+      '<div class="msg-text">' + escapeHtml(data.reply) + "</div>" +
+      '<div class="msg-tags">' + sourceTag + groundedTag + "</div>";
+
+    clearChatAttachment();
+    await refreshLogs();
+    await loadHistory();
+    document.getElementById("chatTitle").textContent =
+      message.length > 50 ? message.slice(0, 50) + "…" : message;
+  } catch (err) {
+    console.error(err);
+    thinking.querySelector(".msg-body").innerHTML =
+      '<div class="msg-error">Something went wrong: ' + escapeHtml(err.message) + "</div>";
+  } finally {
+    sendBtn.disabled = false;
+  }
+}
+
+/* ---------------------------------------------------------------- */
+/* Session history                                                   */
+/* ---------------------------------------------------------------- */
+function startNewChat() {
+  currentSessionId = null;
+  chatAttachment = null;
+  document.getElementById("chatTitle").textContent = "New chat";
+  document.getElementById("chatMessages").innerHTML =
+    '<div class="empty-state" id="emptyState"><h2>UrjaKavach</h2>' +
+    "<p>Sovereign on-premise AI workbench for MRPL. Ask a question, upload a " +
+    "document or image, or run a demo flow from the sidebar. Nothing leaves " +
+    "this machine.</p></div>";
+  clearChatAttachment();
+  document.querySelectorAll(".history-item").forEach(el => el.classList.remove("active"));
+}
+
+function bucketLabel(createdAtSeconds) {
+  const now = new Date();
+  const d = new Date(createdAtSeconds * 1000);
+  const startOfDay = dt => new Date(dt.getFullYear(), dt.getMonth(), dt.getDate());
+  const dayDiff = Math.round((startOfDay(now) - startOfDay(d)) / 86400000);
+
+  if (dayDiff <= 0) return "Today";
+  if (dayDiff === 1) return "Yesterday";
+  if (dayDiff <= 7) return "Last 7 days";
+  return "Older";
+}
+
+function relativeTime(createdAtSeconds) {
+  const diffMs = Date.now() - createdAtSeconds * 1000;
+  const mins = Math.floor(diffMs / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return mins + "m ago";
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return hrs + "h ago";
+  return Math.floor(hrs / 24) + "d ago";
+}
+
+async function loadHistory() {
+  try {
+    const res = await fetch(API + "/api/chat/sessions");
+    const data = await res.json();
+    const list = document.getElementById("historyList");
+
+    if (!data.sessions || !data.sessions.length) {
+      list.innerHTML = '<div class="history-empty">No chats yet</div>';
+      return;
+    }
+
+    const order = ["Today", "Yesterday", "Last 7 days", "Older"];
+    const groups = {};
+    data.sessions.forEach(s => {
+      const label = bucketLabel(s.created_at);
+      (groups[label] = groups[label] || []).push(s);
+    });
+
+    let html = "";
+    order.forEach(label => {
+      const items = groups[label];
+      if (!items || !items.length) return;
+      html += '<div class="history-group-label">' + label + "</div>";
+      html += items.map(s =>
+        '<div class="history-item' + (s.id === currentSessionId ? " active" : "") +
+        '" onclick="openSession(\'' + s.id + '\')">' +
+          '<span class="hi-title">' + escapeHtml(s.title) + "</span>" +
+          '<span class="hi-time">' + relativeTime(s.created_at) + "</span>" +
+        "</div>"
+      ).join("");
+    });
+
+    list.innerHTML = html;
+  } catch (e) {
+    console.error("history load failed", e);
+  }
+}
+
+async function openSession(sessionId) {
+  try {
+    const res = await fetch(API + "/api/chat/sessions/" + sessionId);
+    if (!res.ok) return;
+    const data = await res.json();
+
+    currentSessionId = sessionId;
+    document.getElementById("chatTitle").textContent = data.title || "Chat";
+
+    const container = document.getElementById("chatMessages");
+    container.innerHTML = "";
+    data.messages.forEach(m => {
+      addMessageBubble(
+        m.role === "user" ? "user" : "assistant",
+        '<div class="msg-text">' + escapeHtml(m.content) + "</div>"
+      );
+    });
+
+    document.querySelectorAll(".history-item").forEach(el => el.classList.remove("active"));
+    await loadHistory();
+  } catch (e) {
+    console.error("open session failed", e);
+  }
+}
+
+/* ---------------------------------------------------------------- */
+/* Document flow (modal)                                             */
+/* ---------------------------------------------------------------- */
+function toggleSample() {
+  const useSample = document.getElementById("useSampleToggle").checked;
+  const dz = document.getElementById("dropZone");
+  dz.style.opacity = useSample ? 0.5 : 1;
+  dz.style.pointerEvents = useSample ? "none" : "auto";
+}
+
+function onFileChosen(evt) {
+  const file = evt.target.files[0];
+  if (!file) return;
+
+  uploadedFile = file;
+  document.getElementById("useSampleToggle").checked = false;
+  toggleSample();
+
+  const dz = document.getElementById("dropZone");
+  dz.classList.add("has-file");
+  dz.textContent = file.name;
+
+  const reader = new FileReader();
+  reader.onload = e => {
+    const img = document.getElementById("filePreview");
+    img.src = e.target.result;
+    img.classList.remove("panel-hidden");
+  };
+  reader.readAsDataURL(file);
+}
+
 async function runDocFlow() {
   const btn = document.getElementById("runDoc");
-  const pill = document.getElementById("pill-doc");
-
   btn.disabled = true;
   btn.textContent = "Running…";
-  pill.textContent = "running";
-  pill.className = "status-pill";
-  document.getElementById("docResult").innerHTML = "";
-  document.getElementById("statusFlow").textContent = "running document_analysis.flow…";
 
   let res, rawText;
   try {
     const form = new FormData();
     const useSample = document.getElementById("useSampleToggle").checked;
     form.append("use_sample", useSample ? "true" : "false");
+    if (currentSessionId) form.append("session_id", currentSessionId);
     if (!useSample && uploadedFile) form.append("file", uploadedFile);
 
     res = await fetch(API + "/api/tasks/document", { method: "POST", body: form });
     rawText = await res.text();
     if (!res.ok) throw new Error("Server returned an error");
-
     const data = JSON.parse(rawText);
+    currentSessionId = data.session_id;
     await refreshLogs();
 
     const groundedTag = data.grounded
@@ -140,26 +344,18 @@ async function runDocFlow() {
       ? '<span class="tag tag-ok">local model</span>'
       : '<span class="tag">stub mode</span>';
 
-    document.getElementById("docResult").innerHTML =
-      '<div class="result-box">' +
-        '<div class="result-heading">Key Findings ' + sourceTag + groundedTag + "</div>" +
-        '<ul class="findings">' +
-          data.findings.map(f => "<li>" + escapeHtml(f) + "</li>").join("") +
-        "</ul>" +
-        '<a class="download-link" href="' + API + "/api/outputs/" + data.output_file +
-          '" target="_blank">Download ' + escapeHtml(data.output_file) + "</a>" +
-      "</div>";
-
-    pill.textContent = "done";
-    pill.className = "status-pill ok";
-    document.getElementById("statusFlow").textContent =
-      "document_analysis.flow — task " + data.task_id + " complete";
+    closeModal("docModal");
+    addMessageBubble("user", "Run Document Flow");
+    addMessageBubble("assistant",
+      '<div class="result-heading">Key Findings ' + sourceTag + groundedTag + "</div>" +
+      '<ul class="findings">' + data.findings.map(f => "<li>" + escapeHtml(f) + "</li>").join("") + "</ul>" +
+      '<a class="download-link" href="' + API + "/api/outputs/" + data.output_file +
+        '" target="_blank">Download ' + escapeHtml(data.output_file) + "</a>"
+    );
   } catch (err) {
     console.error(err);
-    showError("docResult", err, res, rawText);
-    pill.textContent = "error";
-    pill.className = "status-pill";
-    document.getElementById("statusFlow").textContent = "document_analysis.flow — error";
+    closeModal("docModal");
+    addMessageBubble("assistant", '<div class="msg-error">' + escapeHtml(err.message) + "</div>");
   } finally {
     btn.disabled = false;
     btn.textContent = "Run Document Flow";
@@ -167,28 +363,22 @@ async function runDocFlow() {
 }
 
 /* ---------------------------------------------------------------- */
-/* Scenario 2 — code flow                                            */
+/* Code flow (modal)                                                 */
 /* ---------------------------------------------------------------- */
 async function runCodeFlow() {
   const btn = document.getElementById("runCode");
-  const pill = document.getElementById("pill-code");
-
   btn.disabled = true;
   btn.textContent = "Running…";
-  pill.textContent = "running";
-  pill.className = "status-pill";
-  document.getElementById("codeResult").innerHTML = "";
-  document.getElementById("statusFlow").textContent = "running code_generation.flow…";
 
+  const prompt = document.getElementById("codePrompt").value;
   let res, rawText;
   try {
     const form = new FormData();
-    form.append("prompt", document.getElementById("codePrompt").value);
+    form.append("prompt", prompt);
 
     res = await fetch(API + "/api/tasks/code", { method: "POST", body: form });
     rawText = await res.text();
     if (!res.ok) throw new Error("Server returned an error");
-
     const data = JSON.parse(rawText);
     await refreshLogs();
 
@@ -199,30 +389,20 @@ async function runCodeFlow() {
       ? '<span class="tag tag-ok">local model</span>'
       : '<span class="tag">stub mode</span>';
 
-    document.getElementById("codeResult").innerHTML =
-      '<div class="result-box">' +
-        '<div class="result-heading">Generated Code ' + sourceTag + "</div>" +
-        '<div class="code-block">' +
-          '<div class="cb-header"><span>generated.py</span><span>code model</span></div>' +
-          "<pre>" + escapeHtml(data.code) + "</pre>" +
-        "</div>" +
-        '<div class="result-heading">Sandbox Output — ' + okBadge + "</div>" +
-        '<div class="code-block">' +
-          '<div class="cb-header"><span>stdout</span><span>isolated subprocess, timeout-guarded</span></div>' +
-          "<pre>" + escapeHtml(data.result.stdout || data.result.stderr || "(no output)") + "</pre>" +
-        "</div>" +
-      "</div>";
-
-    pill.textContent = "done";
-    pill.className = "status-pill ok";
-    document.getElementById("statusFlow").textContent =
-      "code_generation.flow — task " + data.task_id + " complete";
+    closeModal("codeModal");
+    addMessageBubble("user", escapeHtml(prompt));
+    addMessageBubble("assistant",
+      '<div class="result-heading">Generated Code ' + sourceTag + "</div>" +
+      '<div class="code-block"><div class="cb-header"><span>generated.py</span><span>code model</span></div>' +
+        "<pre>" + escapeHtml(data.code) + "</pre></div>" +
+      '<div class="result-heading">Sandbox Output — ' + okBadge + "</div>" +
+      '<div class="code-block"><div class="cb-header"><span>stdout</span><span>isolated subprocess</span></div>' +
+        "<pre>" + escapeHtml(data.result.stdout || data.result.stderr || "(no output)") + "</pre></div>"
+    );
   } catch (err) {
     console.error(err);
-    showError("codeResult", err, res, rawText);
-    pill.textContent = "error";
-    pill.className = "status-pill";
-    document.getElementById("statusFlow").textContent = "code_generation.flow — error";
+    closeModal("codeModal");
+    addMessageBubble("assistant", '<div class="msg-error">' + escapeHtml(err.message) + "</div>");
   } finally {
     btn.disabled = false;
     btn.textContent = "Run Code Flow";
@@ -230,13 +410,12 @@ async function runCodeFlow() {
 }
 
 /* ---------------------------------------------------------------- */
-/* Health check on load                                              */
+/* Health check + history on load                                    */
 /* ---------------------------------------------------------------- */
 (async function () {
   try {
     const res = await fetch(API + "/api/health");
     const data = await res.json();
-
     document.getElementById("healthLine").textContent = "connected — " + data.mode;
 
     const modeLabel = data.use_real_model ? "real local models" : "stub mode";
@@ -247,7 +426,9 @@ async function runCodeFlow() {
     document.getElementById("kbLine").textContent =
       kb.available ? "knowledge base: loaded" : "knowledge base: not built";
   } catch (e) {
-    document.getElementById("healthLine").textContent =
-      "backend not reachable at localhost:8000 — start it with uvicorn";
+    document.getElementById("healthLine").textContent = "backend not reachable";
   }
 })();
+
+loadHistory();
+

@@ -23,11 +23,14 @@ from .tools.ocr_tool import ocr_image
 from .tools.sandbox_tool import run_in_sandbox
 from .tools.docgen_tool import draft_approval_note
 from .tools.kb_tool import retrieve_context
+from . import chat_store
 
 MAX_CODE_ATTEMPTS = 2
 
 
-def run_document_flow(image_path: str, source_name: str) -> dict:
+def run_document_flow(
+    image_path: str, source_name: str, session_id: str | None = None
+) -> dict:
     """Scanned document -> OCR -> findings -> approval note."""
     task_id = str(uuid.uuid4())[:8]
     log_step(task_id, "plan", "Task received: read scanned report and draft an approval note")
@@ -69,11 +72,23 @@ def run_document_flow(image_path: str, source_name: str) -> dict:
     out_path = draft_approval_note(source_name, findings, task_id)
     log_step(task_id, "tool:file_write", "Approval note drafted as DOCX",
              {"path": os.path.basename(out_path)})
+    if not session_id or chat_store.load(session_id) is None:
+        session_id = chat_store.new_session()
+    chat_store.append_message(
+        session_id, "user", f"Ran Document Flow on {source_name}."
+    )
+    findings_text = "\n".join(f"- {f}" for f in findings)
+    chat_store.append_message(
+        session_id, "assistant",
+        f"Document Flow findings:\n{findings_text}\n\n"
+        f"Extracted document text:\n{raw_text[:3000]}"
+    )
 
     log_step(task_id, "done", "Deliverable ready, shown in UI with full audit log")
 
     return {
         "task_id": task_id,
+        "session_id": session_id,
         "raw_text": raw_text,
         "findings": findings,
         "source": source,
@@ -123,4 +138,84 @@ def run_code_flow(prompt: str) -> dict:
         "code": code,
         "source": source,
         "result": result,
+    }
+
+def run_chat_flow(
+    session_id: str,
+    message: str,
+    attachment_path: str | None = None,
+    attachment_type: str | None = None,
+) -> dict:
+    """General-purpose chat: answer a free-form question, optionally
+    grounded in an uploaded file and/or the knowledge base, using the
+    reasoning model. History persists per session on disk."""
+    task_id = str(uuid.uuid4())[:8]
+    log_step(
+        task_id, "plan",
+        f"Chat message received -> {message[:80]!r}",
+    )
+
+    chat_store.append_message(session_id, "user", message)
+
+    attached_text = ""
+    if attachment_path:
+        if attachment_type and attachment_type.startswith("image/"):
+            log_step(
+                task_id, "route",
+                f"Routed attachment to {model_router.model_name_for('ocr')}",
+            )
+            attached_text = ocr_image(attachment_path)
+            log_step(
+                task_id, "tool:vision_ocr",
+                "Extracted text from attached image",
+            )
+        else:
+            try:
+                with open(
+                    attachment_path, "r",
+                    encoding="utf-8", errors="ignore",
+                ) as f:
+                    attached_text = f.read()[:8000]
+                log_step(task_id, "tool:file_read", "Read attached document")
+            except Exception:  # noqa: BLE001
+                attached_text = ""
+
+    kb_context = ""
+    if config.USE_KNOWLEDGE_BASE:
+        kb_context = retrieve_context(message)
+        if kb_context:
+            log_step(
+                task_id, "tool:knowledge_base",
+                "Retrieved relevant plant reference material",
+            )
+
+    log_step(
+        task_id, "route",
+        f"Routed chat subtask to {model_router.model_name_for('reasoning')}",
+    )
+
+    session = chat_store.load(session_id)
+    history = [
+        {"role": m["role"], "content": m["content"]}
+        for m in session["messages"][-10:]
+    ]
+
+    reply, source = model_router.chat(history, kb_context, attached_text)
+    log_step(
+        task_id, "tool:reasoning",
+        "Generated chat reply", {"source": source},
+    )
+
+    chat_store.append_message(session_id, "assistant", reply)
+    log_step(
+        task_id, "done",
+        "Chat reply ready, shown in UI with full audit log",
+    )
+
+    return {
+        "task_id": task_id,
+        "session_id": session_id,
+        "reply": reply,
+        "source": source,
+        "grounded": bool(kb_context),
     }
