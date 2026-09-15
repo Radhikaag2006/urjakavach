@@ -28,7 +28,9 @@ from . import chat_store
 MAX_CODE_ATTEMPTS = 2
 
 
-def run_document_flow(image_path: str, source_name: str) -> dict:
+def run_document_flow(
+    image_path: str, source_name: str, session_id: str | None = None
+) -> dict:
     """Scanned document -> OCR -> findings -> approval note."""
     task_id = str(uuid.uuid4())[:8]
     log_step(task_id, "plan", "Task received: read scanned report and draft an approval note")
@@ -70,11 +72,23 @@ def run_document_flow(image_path: str, source_name: str) -> dict:
     out_path = draft_approval_note(source_name, findings, task_id)
     log_step(task_id, "tool:file_write", "Approval note drafted as DOCX",
              {"path": os.path.basename(out_path)})
+    if not session_id or chat_store.load(session_id) is None:
+        session_id = chat_store.new_session()
+    chat_store.append_message(
+        session_id, "user", f"Ran Document Flow on {source_name}."
+    )
+    findings_text = "\n".join(f"- {f}" for f in findings)
+    chat_store.append_message(
+        session_id, "assistant",
+        f"Document Flow findings:\n{findings_text}\n\n"
+        f"Extracted document text:\n{raw_text[:3000]}"
+    )
 
     log_step(task_id, "done", "Deliverable ready, shown in UI with full audit log")
 
     return {
         "task_id": task_id,
+        "session_id": session_id,
         "raw_text": raw_text,
         "findings": findings,
         "source": source,
