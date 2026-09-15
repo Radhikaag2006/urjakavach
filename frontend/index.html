@@ -98,9 +98,10 @@
         <div class="prompt-chips">
           <button class="chip" onclick="quickPrompt('Summarize the attached document and extract key highlights.')">&#128196; Summarize document</button>
           <button class="chip" onclick="quickPrompt('Write a python script to calculate the moving average of pipeline pressure readings.')">&#9889; Write &amp; run Python script</button>
+          <button class="chip" onclick="quickPrompt('Analyze this attached photo/drawing with computer vision and calculate defect coverage.')">&#128269; Computer Vision Inspection</button>
+          <button class="chip" onclick="quickPrompt('Generate an engineering Process Flow Diagram (PFD) for a heat exchanger loop.')">&#128208; Generate Diagram / PFD</button>
           <button class="chip" onclick="quickPrompt('Please generate a PowerPoint presentation (.pptx) summarizing the key findings.')">&#128202; Generate PowerPoint (.pptx)</button>
           <button class="chip" onclick="quickPrompt('Please structure these findings into an Excel spreadsheet (.xlsx) with status columns.')">&#128200; Export Excel sheet (.xlsx)</button>
-          <button class="chip" onclick="quickPrompt('Export this data table as a CSV dataset (.csv).')">&#128203; Export CSV (.csv)</button>
           <button class="chip" onclick="quickPrompt('Please draft an official approval note (.docx) from the attached inspection data.')">&#128221; Draft approval note (.docx)</button>
         </div>
       </div>
@@ -292,6 +293,18 @@
           </div>
         </form>
       </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay panel-hidden" id="imageViewerModal" onclick="closeModal('imageViewerModal')">
+  <div class="modal modal-lg" style="background:#141414;text-align:center;" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <span id="imageViewerTitle">Engineering Image &amp; Schematic Viewer</span>
+      <button onclick="closeModal('imageViewerModal')">&times;</button>
+    </div>
+    <div class="modal-body" style="display:flex;justify-content:center;align-items:center;padding:12px;background:#0d0d0d;">
+      <img id="imageViewerImg" src="" style="max-width:100%;max-height:78vh;border-radius:6px;box-shadow:0 8px 30px rgba(0,0,0,0.8);" />
     </div>
   </div>
 </div>

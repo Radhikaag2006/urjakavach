@@ -422,7 +422,7 @@ function formatDeliverableMarkdown(text, msgId) {
   }).join('');
 }
 
-function renderDeliverablesHtml(codeResult, docResult, msgId, findings) {
+function renderDeliverablesHtml(codeResult, docResult, msgId, findings, cvResult, imageResult) {
   let html = "";
 
   // 1. Text Deliverable: Extracted Highlights from Documents
@@ -435,7 +435,59 @@ function renderDeliverablesHtml(codeResult, docResult, msgId, findings) {
     `;
   }
 
-  // 2. Code Deliverable: Autonomous Code Generation & Execution
+  // 2. Computer Vision Inspection Deliverable
+  if (cvResult && (cvResult.annotated_filename || cvResult.summary)) {
+    const sevClass = cvResult.severity ? `badge-severity-${cvResult.severity.toLowerCase()}` : "badge-severity-observation";
+    const defectBadge = cvResult.defect_count !== undefined
+      ? `<span class="tag">Defects: ${cvResult.defect_count}</span>`
+      : "";
+    const corrBadge = cvResult.corrosion_area_percentage !== undefined
+      ? `<span class="tag">Corrosion: ${cvResult.corrosion_area_percentage}%</span>`
+      : "";
+    const tagsBadge = cvResult.instrument_tags_count !== undefined
+      ? `<span class="tag">Tags Detected: ${cvResult.instrument_tags_count}</span>`
+      : "";
+
+    html += `
+      <div class="chat-cv-box">
+        <div class="chat-cv-header">
+          <div class="chat-cv-title">&#128269; Computer Vision Inspection Analysis</div>
+          <div style="display:flex;gap:6px;align-items:center;">
+            ${cvResult.severity ? `<span class="${sevClass}">${escapeHtml(cvResult.severity)}</span>` : ""}
+            ${defectBadge} ${corrBadge} ${tagsBadge}
+            ${cvResult.annotated_url ? `<a class="deliverable-btn" href="${escapeHtml(cvResult.annotated_url)}" download="${escapeHtml(cvResult.annotated_filename)}">&#11015; Annotated Overlay</a>` : ""}
+          </div>
+        </div>
+        <div style="font-size:12.5px;color:var(--text-muted);line-height:1.4;">${escapeHtml(cvResult.summary || "")}</div>
+        ${cvResult.annotated_url ? `
+          <img src="${escapeHtml(cvResult.annotated_url)}" class="cv-annotated-img"
+               onclick="openImageViewer('${escapeHtml(cvResult.annotated_url)}', 'Computer Vision Annotated Inspection Overlay')"
+               title="Click to zoom in" alt="CV Annotated Overlay" />
+        ` : ""}
+      </div>
+    `;
+  }
+
+  // 3. Engineering Diagram / Schematic Deliverable
+  if (imageResult && (imageResult.filename || imageResult.download_url)) {
+    const diagTitle = imageResult.title || "Engineering Diagram";
+    const diagUrl = imageResult.download_url || `/api/download/${imageResult.filename}`;
+    html += `
+      <div class="chat-cv-box">
+        <div class="chat-cv-header">
+          <div class="chat-cv-title">&#128208; ${escapeHtml(diagTitle)}</div>
+          <a class="deliverable-btn" href="${escapeHtml(diagUrl)}" download="${escapeHtml(imageResult.filename || 'diagram.png')}">
+            &#11015; Download Diagram (.png)
+          </a>
+        </div>
+        <img src="${escapeHtml(diagUrl)}" class="cv-annotated-img"
+             onclick="openImageViewer('${escapeHtml(diagUrl)}', '${escapeHtml(diagTitle)}')"
+             title="Click to zoom in" alt="${escapeHtml(diagTitle)}" />
+      </div>
+    `;
+  }
+
+  // 4. Code Deliverable: Autonomous Code Generation & Execution
   if (codeResult && (codeResult.code || codeResult.stdout)) {
     const sId = `${msgId}_auto_code`;
     snippetStore[sId] = codeResult.code || "";
@@ -466,7 +518,7 @@ function renderDeliverablesHtml(codeResult, docResult, msgId, findings) {
     `;
   }
 
-  // 3. Document / Presentation / Spreadsheet Deliverable
+  // 5. Document / Presentation / Spreadsheet Deliverable
   if (docResult && (docResult.output_file || docResult.download_url)) {
     const docName = docResult.output_file || "Deliverable";
     const dlUrl = docResult.download_url || `/api/download/${docName}`;
@@ -509,6 +561,12 @@ function renderDeliverablesHtml(codeResult, docResult, msgId, findings) {
     `;
   }
   return html;
+}
+
+function openImageViewer(url, title = "Engineering Image Viewer") {
+  document.getElementById("imageViewerTitle").textContent = title;
+  document.getElementById("imageViewerImg").src = url;
+  openModal("imageViewerModal");
 }
 
 function renderAttachPreview() {
@@ -595,7 +653,7 @@ async function sendChatMessage() {
 
     const msgId = data.message_id || `msg_${Date.now()}`;
     const formattedText = formatDeliverableMarkdown(data.reply, msgId);
-    const deliverablesHtml = renderDeliverablesHtml(data.code_result, data.doc_result, msgId, data.findings);
+    const deliverablesHtml = renderDeliverablesHtml(data.code_result, data.doc_result, msgId, data.findings, data.cv_result, data.image_result);
     const actionsToolbar = renderDeliverableActionsToolbar(msgId);
 
     thinking.querySelector(".msg-body").innerHTML =
@@ -734,7 +792,7 @@ async function openSession(sessionId) {
       } else {
         contentHtml = escapeHtml(m.prompt || m.content || "");
       }
-      const deliverablesHtml = renderDeliverablesHtml(m.code_result, m.doc_result, msgId, m.findings);
+      const deliverablesHtml = renderDeliverablesHtml(m.code_result, m.doc_result, msgId, m.findings, m.cv_result, m.image_result);
       const actionsToolbar = isAssistant ? renderDeliverableActionsToolbar(msgId) : "";
 
       bubbleHtml += '<div class="msg-text">' + contentHtml + '</div>' + deliverablesHtml + actionsToolbar;

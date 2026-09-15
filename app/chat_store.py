@@ -130,8 +130,10 @@ def append_message(
     grounded: bool = False,
     code_result: dict | None = None,
     doc_result: dict | None = None,
+    cv_result: dict | None = None,
+    image_result: dict | None = None,
 ) -> str:
-    """Append a message to the session with optional code and document deliverables."""
+    """Append a message to the session with optional code, document, CV, and diagram deliverables."""
     data = load(session_id)
     if not data:
         return ""
@@ -151,6 +153,8 @@ def append_message(
         "grounded": grounded,
         "code_result": code_result,
         "doc_result": doc_result,
+        "cv_result": cv_result,
+        "image_result": image_result,
         "timestamp": int(time.time()),
     }
     data["messages"].append(msg)

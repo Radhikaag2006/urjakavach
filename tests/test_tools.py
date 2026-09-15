@@ -75,3 +75,62 @@ class TestOCR:
         # Key domain terms must survive OCR
         assert "PL-204B" in text
         assert "corrosion" in text.lower()
+
+
+class TestComputerVision:
+    def test_analyzes_drawing_image(self, tmp_path):
+        from PIL import Image, ImageDraw
+        from app.tools.cv_tool import analyze_engineering_image
+
+        img_path = str(tmp_path / "cad_drawing.png")
+        im = Image.new("RGB", (500, 400), color=(250, 250, 250))
+        draw = ImageDraw.Draw(im)
+        draw.rectangle([60, 60, 250, 180], outline=(0, 0, 0), width=3)
+        draw.ellipse([300, 80, 380, 160], outline=(0, 0, 0), width=3)
+        im.save(img_path)
+
+        res = analyze_engineering_image(img_path)
+        assert res["ok"] is True
+        assert res["is_drawing"] is True
+        assert res["analysis_mode"] == "mechanical_drawing"
+        assert os.path.exists(os.path.join(config.OUTPUTS_DIR, res["annotated_filename"]))
+
+    def test_analyzes_corrosion_inspection_photo(self, tmp_path):
+        from PIL import Image, ImageDraw
+        from app.tools.cv_tool import analyze_engineering_image
+
+        img_path = str(tmp_path / "pipe_corrosion.png")
+        # Dark metallic background with reddish/brown rust patches
+        im = Image.new("RGB", (400, 300), color=(70, 75, 80))
+        draw = ImageDraw.Draw(im)
+        draw.ellipse([80, 80, 180, 180], fill=(165, 42, 42))  # Rust patch
+        draw.ellipse([220, 120, 290, 190], fill=(180, 70, 30))  # Oxide pit
+        im.save(img_path)
+
+        res = analyze_engineering_image(img_path)
+        assert res["ok"] is True
+        assert res["analysis_mode"] == "surface_defect_inspection"
+        assert res["corrosion_area_percentage"] > 0
+        assert res["defect_count"] >= 1
+        assert res["severity"] in ("Minor", "Major", "Critical", "Observation")
+        assert os.path.exists(os.path.join(config.OUTPUTS_DIR, res["annotated_filename"]))
+
+
+class TestDiagramGenerator:
+    def test_generates_heat_exchanger_diagram(self):
+        from app.tools.diagram_generator import generate_engineering_diagram
+
+        res = generate_engineering_diagram("Heat Exchanger E-101 Shell and Tube bundle")
+        assert res["ok"] is True
+        assert "Heat Exchanger" in res["title"]
+        assert res["filename"].endswith(".png")
+        assert os.path.exists(os.path.join(config.OUTPUTS_DIR, res["filename"]))
+
+    def test_generates_corrosion_chart(self):
+        from app.tools.diagram_generator import generate_engineering_diagram
+
+        res = generate_engineering_diagram("Piping wall thickness degradation API 570")
+        assert res["ok"] is True
+        assert "Degradation" in res["title"]
+        assert os.path.exists(os.path.join(config.OUTPUTS_DIR, res["filename"]))
+

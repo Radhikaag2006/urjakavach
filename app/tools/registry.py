@@ -47,6 +47,22 @@ REGISTERED_TOOLS: Dict[str, Dict[str, Any]] = {
         "capabilities": ["rag", "grounding", "refinery_standards", "equipment_specs"],
         "is_default": False,
     },
+    "cv_tool": {
+        "id": "cv_tool",
+        "name": "Industrial Computer Vision & Drawing Inspector",
+        "category": "Vision & Inspection",
+        "description": "Performs mechanical drawing/P&ID component localization, piping line tracing, and visual surface corrosion/defect area quantification with annotated overlays.",
+        "capabilities": ["cv", "computer_vision", "p&id", "drawings", "defect_detection", "corrosion_quantification"],
+        "is_default": True,
+    },
+    "diagram_generator": {
+        "id": "diagram_generator",
+        "name": "Engineering Diagram & Schematic Generator",
+        "category": "Deliverables & Reporting",
+        "description": "Synthesizes publication-grade process flow diagrams (PFD), piping schematics, and equipment degradation curves as high-resolution images.",
+        "capabilities": ["diagrams", "schematics", "pfd", "plots", "charts", "image_generation"],
+        "is_default": True,
+    },
 }
 
 
@@ -77,5 +93,11 @@ def suggest_tools_for_intent(text: str) -> List[str]:
 
     if any(k in text_lower for k in ["refinery", "standard", "mrpl", "spec", "equipment", "manual", "asme", "api", "sop"]):
         suggested.add("kb_tool")
+
+    if any(k in text_lower for k in ["vision", "cv", "drawing", "p&id", "schematic", "blueprint", "defect", "corrosion", "crack", "photo", "contour"]):
+        suggested.add("cv_tool")
+
+    if any(k in text_lower for k in ["diagram", "schematic", "draw", "plot", "chart", "pfd", "flowsheet", "generate image", "image"]):
+        suggested.add("diagram_generator")
 
     return list(suggested)

@@ -199,6 +199,49 @@ BUILTIN_AGENTS: List[Dict[str, Any]] = [
             "Draft an official shift handover memo (.docx) for the incoming unit shift supervisor.",
         ],
     },
+    {
+        "id": "agent_cv_vision",
+        "name": "P&ID Drawing & Visual Inspection Agent",
+        "department": "Inspection & Design Engineering",
+        "description": "Applies computer vision to mechanical drawings, P&IDs, and physical inspection photos to detect corrosion, defects, instrument tags, and piping runs.",
+        "use_case_ids": [
+            "pid_drawing_analysis",
+            "visual_defect_inspection",
+            "corrosion_area_quantification",
+            "piping_line_tracing",
+            "mechanical_drawings",
+            "engineering_diagrams",
+        ],
+        "system_prompt": (
+            "You are UrjaKavach's Computer Vision & Visual Inspection Specialist. When provided with an engineering drawing "
+            "or inspection photograph, apply computer vision routines to quantify corrosion percentage, identify defects, "
+            "extract instrument tags, and generate visual inspection overlays or process schematics."
+        ),
+        "skill_filename": "SKILL_CV_VISION.md",
+        "skill_content": (
+            "# Computer Vision & Visual Inspection Skill\n\n"
+            "## Applicable Standards\n"
+            "- ISA-5.1: Instrumentation Symbols and Identification (balloon tags, valve symbols).\n"
+            "- ISO 8501-1: Preparation of steel substrates before application of paints and related products (Visual assessment of surface cleanliness and rust grades A, B, C, D).\n\n"
+            "## Visual Inspection Protocol\n"
+            "1. **Surface Defect Grading**:\n"
+            "   - Coverage < 2%: Observation (minor superficial discoloration).\n"
+            "   - Coverage 2% - 10%: Minor (isolated pitting or localized coating breakdown).\n"
+            "   - Coverage 10% - 25%: Major (active general corrosion, ultrasonic UT required).\n"
+            "   - Coverage > 25%: Critical (immediate structural assessment & repair).\n"
+            "2. **P&ID Component Localization**:\n"
+            "   - Identify circular instrument tags and trace major piping lines.\n"
+            "   - When requested, synthesize clean process schematics or degradation trend plots.\n"
+        ),
+        "tool_ids": ["cv_tool", "diagram_generator", "deliverable_builder", "sandbox_tool", "doc_extractor"],
+        "model_type": "reasoning",
+        "is_builtin": True,
+        "starter_prompts": [
+            "Analyze this uploaded piping photo and calculate the percentage of surface corrosion.",
+            "Inspect this P&ID drawing and extract all instrument tags and major piping runs.",
+            "Generate a high-resolution Process Flow Diagram (PFD) for a crude preheat heat exchanger loop.",
+        ],
+    },
 ]
 
 

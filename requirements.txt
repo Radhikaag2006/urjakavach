@@ -8,6 +8,10 @@ python-dotenv
 pytesseract          # needs the Tesseract OS binary too - see docs/SETUP.md
 Pillow
 python-docx
+python-pptx
+openpyxl
+opencv-python-headless
+matplotlib
 
 # Model layer
 requests

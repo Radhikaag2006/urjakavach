@@ -27,6 +27,8 @@ from .tools.deliverable_builder import generate_presentation, generate_spreadshe
 from .tools.kb_tool import retrieve_context
 from . import chat_store
 from .agents.agent_store import agent_store
+from .tools.cv_tool import analyze_engineering_image
+from .tools.diagram_generator import generate_engineering_diagram
 
 MAX_CODE_ATTEMPTS = 2
 
@@ -201,6 +203,7 @@ def run_chat_flow(
         session_id = chat_store.new_session()
 
     active_agent = agent_store.get_agent(agent_id) if agent_id else None
+    permitted_tools = set(active_agent.get("tool_ids", [])) if (active_agent and active_agent.get("tool_ids")) else None
     if active_agent:
         log_step(
             task_id, "agent:context",
@@ -334,6 +337,44 @@ def run_chat_flow(
 
     all_findings = [f for d in all_session_docs for f in d.get("findings", [])] or (doc_context.get("findings", []) if doc_context else [])
     msg_lower = (message or "").lower()
+
+    # Autonomous Subtask: Industrial Computer Vision (OpenCV inspection)
+    cv_deliverable = None
+    first_image_att = next(
+        (att for att in effective_attachments if (att.get("name") or "").lower().endswith((".png", ".jpg", ".jpeg", ".bmp", ".webp"))),
+        None
+    )
+    cv_triggers = [
+        "vision", "cv", "corrosion", "defect", "drawing", "p&id", "pid", "inspect image",
+        "analyze photo", "crack", "surface", "rust", "pit", "contour", "weld"
+    ]
+    should_run_cv = bool(first_image_att) and (
+        any(k in msg_lower for k in cv_triggers)
+        or (active_agent and active_agent.get("id") == "agent_cv_vision")
+        or (permitted_tools and "cv_tool" in permitted_tools)
+    )
+    if permitted_tools is not None and "cv_tool" not in permitted_tools:
+        should_run_cv = False
+
+    if should_run_cv and first_image_att:
+        log_step(
+            task_id, "tool:cv_tool",
+            f"Running Computer Vision analysis on '{first_image_att['name']}' (OpenCV & contours)",
+        )
+        cv_res = analyze_engineering_image(first_image_att["path"], task_id=task_id)
+        if cv_res.get("ok"):
+            cv_deliverable = cv_res
+            log_step(
+                task_id, "tool:cv_tool",
+                f"CV Complete: {cv_res.get('summary')}",
+                {"severity": cv_res.get("severity"), "defects": cv_res.get("defect_count", 0)}
+            )
+            combined_attached_text += (
+                f"\n\n### [COMPUTER VISION ANALYSIS RESULT]\n"
+                f"Summary: {cv_res.get('summary')}\n"
+                f"Annotated Inspection Image: {cv_res.get('annotated_filename')}\n"
+            )
+            all_findings.append(cv_res.get("summary"))
 
     # Autonomous Subtask 1: Code Generation and Sandbox Execution
     code_deliverable = None
@@ -493,6 +534,33 @@ def run_chat_flow(
             f"Download available at: {doc_deliverable['download_url']}\n"
         )
 
+    # Autonomous Subtask 3: Engineering Diagram & Schematic Generation
+    image_deliverable = None
+    diag_triggers = [
+        "diagram", "schematic", "pfd", "flow diagram", "generate diagram", "generate image",
+        "process flow", "draw a", "draw schematic", "plot a", "chart of", "curve"
+    ]
+    should_gen_diag = any(k in msg_lower for k in diag_triggers) and not (should_ppt or should_excel or should_csv)
+    if permitted_tools is not None and "diagram_generator" not in permitted_tools:
+        should_gen_diag = False
+
+    if should_gen_diag:
+        log_step(
+            task_id, "tool:diagram_generator",
+            f"Synthesizing high-resolution engineering diagram for '{message[:50]}'",
+        )
+        diag_res = generate_engineering_diagram(
+            message,
+            context=combined_attached_text,
+            task_id=task_id,
+        )
+        image_deliverable = diag_res
+        combined_attached_text += (
+            f"\n\n### [GENERATED ENGINEERING DIAGRAM]\n"
+            f"Diagram Deliverable: '{diag_res['title']}' ({diag_res['filename']})\n"
+            f"Download available at: {diag_res['download_url']}\n"
+        )
+
     log_step(
         task_id, "route",
         f"Routed chat subtask to {model_router.model_name_for('reasoning')}",
@@ -525,6 +593,8 @@ def run_chat_flow(
         grounded=bool(combined_kb_context or all_session_docs),
         code_result=code_deliverable,
         doc_result=doc_deliverable,
+        cv_result=cv_deliverable,
+        image_result=image_deliverable,
     )
 
     text_deliverable = {
@@ -548,6 +618,8 @@ def run_chat_flow(
         "all_documents": all_session_docs,
         "code_result": code_deliverable,
         "doc_result": doc_deliverable,
+        "cv_result": cv_deliverable,
+        "image_result": image_deliverable,
         "text_deliverable": text_deliverable,
         "agent": active_agent,
     }
