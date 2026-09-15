@@ -152,3 +152,79 @@ def build_chat_prompt(
     messages.extend(history)
     return messages
 
+
+PRESENTATION_SYSTEM_PROMPT = """You are an expert executive and technical presentation designer.
+Your task is to generate a comprehensive, highly specific 4-to-6 slide presentation based on the user's prompt and provided context.
+
+You must respond ONLY with a valid JSON object matching this schema:
+{
+  "title": "Clear, compelling main presentation title",
+  "subtitle": "Informative subtitle or scope",
+  "slides": [
+    {
+      "header": "Slide 1 Header",
+      "points": [
+        "Concrete, technical, informative bullet point 1",
+        "Concrete, technical, informative bullet point 2",
+        "Concrete, technical, informative bullet point 3"
+      ]
+    }
+  ]
+}
+
+Rules:
+- NEVER use generic placeholders (e.g. do NOT write "Review findings with team", "Implement adjustments", "Ensure compliance").
+- Ground EVERY point in the specific facts, terminology, code, metrics, or concepts provided in the prompt/context.
+- Each slide must have 3 to 5 detailed, informative bullet points.
+- Create 4 to 5 distinct slides (e.g. Overview & Scope, Core Architecture/Findings, Detailed Analysis/Mechanisms, Implementation Roadmap/Actions).
+- Output ONLY the raw JSON object. No preamble, no postscript, no markdown code fences.
+"""
+
+TABLE_SYSTEM_PROMPT = """You are an expert data analyst and tabular structuring assistant.
+Your task is to generate or extract a clean, structured tabular dataset based on the user's prompt and provided context.
+
+You must respond ONLY with a valid JSON object matching this schema:
+{
+  "title": "Clear descriptive table title",
+  "headers": ["Column 1", "Column 2", "Column 3"],
+  "rows": [
+    ["row1_val1", "row1_val2", "row1_val3"],
+    ["row2_val1", "row2_val2", "row2_val3"]
+  ]
+}
+
+Rules:
+- Generate meaningful, specific columns and rows directly relevant to the topic and context.
+- Never use generic placeholder rows. Fill the table with real, useful data (at least 4 to 8 rows).
+- Output ONLY the raw JSON object. No preamble, no markdown code fences.
+"""
+
+
+def build_presentation_prompt(topic: str, context: str = "", findings: list[str] | None = None) -> list[dict]:
+    """Assemble messages for real slide-deck generation."""
+    user_content = f"Presentation Request / Topic:\n{topic}"
+    if findings:
+        user_content += "\n\nExtracted Key Findings:\n" + "\n".join(f"- {f}" for f in findings)
+    if context:
+        user_content += f"\n\nReference Material / Context:\n{context[:4000]}"
+
+    return [
+        {"role": "system", "content": PRESENTATION_SYSTEM_PROMPT},
+        {"role": "user", "content": user_content},
+    ]
+
+
+def build_table_prompt(topic: str, context: str = "", findings: list[str] | None = None) -> list[dict]:
+    """Assemble messages for real tabular dataset generation."""
+    user_content = f"Data / Table Request:\n{topic}"
+    if findings:
+        user_content += "\n\nExtracted Key Findings:\n" + "\n".join(f"- {f}" for f in findings)
+    if context:
+        user_content += f"\n\nReference Material / Context:\n{context[:4000]}"
+
+    return [
+        {"role": "system", "content": TABLE_SYSTEM_PROMPT},
+        {"role": "user", "content": user_content},
+    ]
+
+

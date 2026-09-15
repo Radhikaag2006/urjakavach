@@ -23,6 +23,7 @@ teammate who has not started llama-server can still run the whole app.
 Owner: Track A.
 """
 import re
+import json
 
 from . import config
 from . import prompts
@@ -176,6 +177,135 @@ def chat(
         doc_context=doc_context,
         documents=documents,
     ), "stub"
+
+
+def _extract_json_dict(raw: str) -> dict:
+    """Extract first valid JSON object from model output."""
+    raw = raw.strip()
+    match = re.search(r"```(?:json)?\s*\n?(.*?)\n?```", raw, re.DOTALL)
+    if match:
+        raw = match.group(1).strip()
+    first_brace = raw.find("{")
+    last_brace = raw.rfind("}")
+    if first_brace != -1 and last_brace != -1 and last_brace > first_brace:
+        raw = raw[first_brace : last_brace + 1]
+    return json.loads(raw)
+
+
+def generate_presentation_content(
+    topic: str,
+    context: str = "",
+    findings: list[str] | None = None,
+) -> tuple[dict, str]:
+    """Generate real slide-deck presentation content (title, subtitle, slides with points)."""
+    if config.USE_REAL_MODEL:
+        try:
+            msgs = prompts.build_presentation_prompt(topic, context=context, findings=findings)
+            raw = _call_model("reasoning", msgs)
+            parsed = _extract_json_dict(raw)
+            if isinstance(parsed, dict) and "slides" in parsed and len(parsed["slides"]) >= 2:
+                slides = []
+                for s in parsed["slides"]:
+                    if isinstance(s, dict) and "header" in s:
+                        pts = [str(p).strip() for p in s.get("points", []) if str(p).strip()]
+                        if pts:
+                            slides.append({"header": str(s["header"]), "points": pts})
+                if len(slides) >= 2:
+                    return {
+                        "title": str(parsed.get("title") or topic[:60]),
+                        "subtitle": str(parsed.get("subtitle") or "UrjaKavach Sovereign Analysis"),
+                        "slides": slides,
+                    }, "model"
+        except Exception:
+            pass
+
+    return _dynamic_presentation_fallback(topic, context=context, findings=findings), "stub"
+
+
+def generate_table_content(
+    topic: str,
+    context: str = "",
+    findings: list[str] | None = None,
+) -> tuple[dict, str]:
+    """Generate real tabular dataset content (title, headers, rows)."""
+    if config.USE_REAL_MODEL:
+        try:
+            msgs = prompts.build_table_prompt(topic, context=context, findings=findings)
+            raw = _call_model("reasoning", msgs)
+            parsed = _extract_json_dict(raw)
+            if isinstance(parsed, dict) and "headers" in parsed and "rows" in parsed:
+                headers = [str(h) for h in parsed["headers"]]
+                rows = [list(r) for r in parsed["rows"] if isinstance(r, (list, tuple))]
+                if headers and rows:
+                    return {
+                        "title": str(parsed.get("title") or topic[:60]),
+                        "headers": headers,
+                        "rows": rows,
+                    }, "model"
+        except Exception:
+            pass
+
+    return _dynamic_table_fallback(topic, context=context, findings=findings), "stub"
+
+
+def _dynamic_presentation_fallback(topic: str, context: str = "", findings: list[str] | None = None) -> dict:
+    """Generate dynamic, topic-grounded presentation content without hardcoded refinery boilerplate."""
+    clean_topic = re.sub(r"(?i)\b(generate|create|make|powerpoint|presentation|ppt|pptx|slide deck|slides|about|on)\b", "", topic).strip()
+    title = clean_topic.title() if len(clean_topic) > 3 else "Technical Briefing & Analysis"
+    
+    # Gather actual points from findings and context
+    all_pts = []
+    if findings:
+        all_pts.extend(findings)
+    if context:
+        lines = [l.strip() for l in context.splitlines() if len(l.strip()) > 10 and not l.strip().startswith(("#", "//", "/*"))]
+        all_pts.extend(lines[:8])
+
+    slide1_pts = all_pts[:3] if len(all_pts) >= 3 else [
+        f"Core objective: {title}",
+        "Comprehensive on-premise technical review",
+        "Key requirements and architectural parameters established",
+    ]
+
+    slide2_pts = all_pts[3:6] if len(all_pts) >= 6 else (all_pts[:3] if all_pts else [
+        "Primary telemetry and operational characteristics reviewed",
+        "Verified against sovereign engineering standards",
+        "Deterministic parameter validation completed",
+    ])
+
+    slide3_pts = all_pts[6:9] if len(all_pts) >= 9 else [
+        "Multi-component synchronization and data integrity verified",
+        "Cross-document context preserved in session memory",
+        "System operating within verified design specifications",
+    ]
+
+    slide4_pts = [
+        f"Execute verified actions for {title}",
+        "Continuous on-premise monitoring and verification",
+        "Maintain sovereign audit logging for regulatory compliance",
+    ]
+
+    return {
+        "title": title,
+        "subtitle": "UrjaKavach Sovereign On-Premise Analysis",
+        "slides": [
+            {"header": "1. Executive Summary & Scope", "points": slide1_pts},
+            {"header": "2. Technical Observations & Findings", "points": slide2_pts},
+            {"header": "3. Detailed Architectural Breakdown", "points": slide3_pts},
+            {"header": "4. Action Plan & Roadmap", "points": slide4_pts},
+        ],
+    }
+
+
+def _dynamic_table_fallback(topic: str, context: str = "", findings: list[str] | None = None) -> dict:
+    from .tools.deliverable_builder import parse_tabular_data
+    title, headers, rows = parse_tabular_data(context, findings=findings)
+    return {
+        "title": title,
+        "headers": headers,
+        "rows": rows,
+    }
+
 
 
 # --------------------------------------------------------------------

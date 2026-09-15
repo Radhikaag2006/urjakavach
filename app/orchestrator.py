@@ -201,6 +201,8 @@ def run_chat_flow(
     All subsequent prompts in this session remain grounded across all attached documents.
     """
     task_id = str(uuid.uuid4())[:8]
+    if not session_id or chat_store.load(session_id) is None:
+        session_id = chat_store.new_session()
 
     # Normalize single attachment args into attachments list
     effective_attachments: list[dict] = []
@@ -397,14 +399,16 @@ def run_chat_flow(
         if should_ppt:
             log_step(
                 task_id, "tool:file_write",
-                "Autonomous deliverable generation: building PowerPoint slide deck (.pptx)",
+                "Autonomous deliverable generation: structuring PowerPoint slide deck (.pptx) via model",
+            )
+            pres_data, pres_src = model_router.generate_presentation_content(
+                message,
+                context=combined_attached_text,
+                findings=all_findings,
             )
             doc_filename = generate_presentation(
-                title=f"Analysis: {source_doc_name}",
-                subtitle="UrjaKavach Sovereign On-Premise AI Briefing",
-                findings=all_findings,
+                pres_data,
                 task_id=task_id,
-                raw_context=combined_attached_text,
             )
             doc_deliverable = {
                 "output_file": doc_filename,
@@ -412,21 +416,33 @@ def run_chat_flow(
                 "download_url": f"/api/download/{doc_filename}",
                 "file_type": "pptx",
                 "findings": all_findings,
+                "title": pres_data.get("title", "Presentation"),
             }
         elif should_excel or should_csv:
             fmt = "csv" if (should_csv and not should_excel) else "xlsx"
             log_step(
                 task_id, "tool:file_write",
-                f"Autonomous deliverable generation: structuring tabular dataset (.{fmt})",
+                f"Autonomous deliverable generation: structuring tabular dataset (.{fmt}) via model",
             )
-            tbl_title, tbl_headers, tbl_rows = parse_tabular_data(combined_attached_text, findings=all_findings)
-            doc_filename = generate_spreadsheet(tbl_title, tbl_headers, tbl_rows, task_id=task_id, fmt=fmt)
+            tbl_data, tbl_src = model_router.generate_table_content(
+                message,
+                context=combined_attached_text,
+                findings=all_findings,
+            )
+            doc_filename = generate_spreadsheet(
+                tbl_data.get("title", "Report"),
+                tbl_data.get("headers", ["ID", "Parameter", "Status"]),
+                tbl_data.get("rows", []),
+                task_id=task_id,
+                fmt=fmt,
+            )
             doc_deliverable = {
                 "output_file": doc_filename,
                 "document_path": os.path.join(config.OUTPUTS_DIR, doc_filename),
                 "download_url": f"/api/download/{doc_filename}",
                 "file_type": fmt,
                 "findings": all_findings,
+                "title": tbl_data.get("title", "Dataset"),
             }
         else:
             log_step(

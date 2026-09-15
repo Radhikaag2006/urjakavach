@@ -38,35 +38,49 @@ ACCENT_BLUE = RGBColor(59, 130, 246)    # #3B82F6
 
 
 def generate_presentation(
-    title: str,
+    title_or_data: str | dict,
     subtitle: str = "UrjaKavach Sovereign On-Premise AI Analysis",
     findings: list[str] | None = None,
     task_id: str = "gen",
     raw_context: str = "",
+    slides_data: list[dict] | None = None,
 ) -> str:
-    """Generate a high-quality PowerPoint presentation (.pptx)."""
+    """Generate a high-quality PowerPoint presentation (.pptx) with real dynamic content."""
     os.makedirs(config.OUTPUTS_DIR, exist_ok=True)
     filename = f"UrjaKavach_Presentation_{task_id}.pptx"
     output_path = os.path.join(config.OUTPUTS_DIR, filename)
 
+    # Extract real title, subtitle, and slides
+    if isinstance(title_or_data, dict):
+        title = title_or_data.get("title") or "Technical Briefing"
+        subtitle = title_or_data.get("subtitle") or subtitle
+        slides_list = title_or_data.get("slides") or []
+    else:
+        title = str(title_or_data)
+        slides_list = slides_data or []
+
     if not HAS_PPTX:
         # Fallback: create markdown-formatted presentation text
         with open(output_path.replace(".pptx", ".txt"), "w", encoding="utf-8") as f:
-            f.write(f"# {title}\n## {subtitle}\n\n" + "\n".join(f"- {pt}" for pt in (findings or [])))
+            f.write(f"# {title}\n## {subtitle}\n\n")
+            for s in slides_list:
+                f.write(f"### {s.get('header', 'Slide')}\n")
+                for p in s.get("points", []):
+                    f.write(f"- {p}\n")
+                f.write("\n")
         return filename
 
     prs = Presentation()
     # 16:9 widescreen layout
     prs.slide_width = Inches(13.333)
     prs.slide_height = Inches(7.5)
-
     blank_layout = prs.slide_layouts[6]
 
     # --- Slide 1: Title Slide ---
     slide1 = prs.slides.add_slide(blank_layout)
 
     # Top accent bar
-    top_bar = slide1.shapes.add_shape(1, Inches(0), Inches(0), Inches(13.333), Inches(0.2))  # 1 = MSO_SHAPE.RECTANGLE
+    top_bar = slide1.shapes.add_shape(1, Inches(0), Inches(0), Inches(13.333), Inches(0.2))
     top_bar.fill.solid()
     top_bar.fill.fore_color.rgb = NAVY_BLUE
     top_bar.line.fill.background()
@@ -84,75 +98,49 @@ def generate_presentation(
 
     p_title = tf.add_paragraph()
     p_title.text = title
-    p_title.font.size = Pt(36)
+    p_title.font.size = Pt(34)
     p_title.font.bold = True
     p_title.font.color.rgb = DARK_SLATE
     p_title.space_before = Pt(14)
 
     p_sub = tf.add_paragraph()
     p_sub.text = subtitle
-    p_sub.font.size = Pt(18)
+    p_sub.font.size = Pt(17)
     p_sub.font.color.rgb = MUTED_GRAY
     p_sub.space_before = Pt(8)
 
     p_date = tf.add_paragraph()
-    p_date.text = f"Generated: {datetime.now().strftime('%B %d, %Y • %H:%M')} | On-Premise Air-Gapped Verification"
+    p_date.text = f"Generated: {datetime.now().strftime('%B %d, %Y • %H:%M')} | Air-Gapped Verification"
     p_date.font.size = Pt(12)
     p_date.font.color.rgb = MUTED_GRAY
     p_date.space_before = Pt(20)
 
-    # --- Slide 2: Executive Summary & Overview ---
-    slide2 = prs.slides.add_slide(blank_layout)
-    _add_slide_header(slide2, "Executive Briefing & Overview", "High-level summary of analyzed inputs and objectives")
+    # --- Dynamic Body Slides ---
+    if not slides_list:
+        # Fallback if no slides list provided
+        pts = findings if findings else ["Comprehensive technical analysis completed.", "Verified on-premise without cloud transmission."]
+        slides_list = [
+            {"header": "1. Executive Summary & Scope", "points": pts[:4]},
+            {"header": "2. Detailed Observations & Telemetry", "points": pts[4:8] if len(pts) > 4 else pts},
+            {"header": "3. Implementation Actions & Roadmap", "points": ["Execute recommended engineering parameters.", "Verify continuous operational feedback."]},
+        ]
 
-    s2_box = slide2.shapes.add_textbox(Inches(1.2), Inches(2.0), Inches(11), Inches(4.5))
-    s2_tf = s2_box.text_frame
-    s2_tf.word_wrap = True
+    for s_idx, s_data in enumerate(slides_list, start=1):
+        slide = prs.slides.add_slide(blank_layout)
+        header_text = s_data.get("header") or f"Slide {s_idx}"
+        _add_slide_header(slide, header_text, f"{title} • Slide {s_idx} of {len(slides_list)}")
 
-    summary_pts = findings[:4] if findings else ["Comprehensive analysis conducted across provided material.", "All engineering data verified against on-premise standards."]
-    for idx, pt in enumerate(summary_pts):
-        p = s2_tf.paragraphs[0] if idx == 0 else s2_tf.add_paragraph()
-        p.text = f"•   {pt}"
-        p.font.size = Pt(16)
-        p.font.color.rgb = DARK_SLATE
-        p.space_before = Pt(14)
+        s_box = slide.shapes.add_textbox(Inches(1.2), Inches(2.0), Inches(11), Inches(4.8))
+        s_tf = s_box.text_frame
+        s_tf.word_wrap = True
 
-    # --- Slide 3: Detailed Technical Observations ---
-    slide3 = prs.slides.add_slide(blank_layout)
-    _add_slide_header(slide3, "Technical Observations & Findings", "Key metrics, parameter readings, and document extractions")
-
-    s3_box = slide3.shapes.add_textbox(Inches(1.2), Inches(2.0), Inches(11), Inches(4.5))
-    s3_tf = s3_box.text_frame
-    s3_tf.word_wrap = True
-
-    detail_pts = findings[4:] if len(findings or []) > 4 else (findings or ["Observation: System operating within acceptable tolerances."])
-    for idx, pt in enumerate(detail_pts[:6]):
-        p = s3_tf.paragraphs[0] if idx == 0 else s3_tf.add_paragraph()
-        p.text = f"✔   {pt}"
-        p.font.size = Pt(15)
-        p.font.color.rgb = DARK_SLATE
-        p.space_before = Pt(12)
-
-    # --- Slide 4: Action Plan & Recommendations ---
-    slide4 = prs.slides.add_slide(blank_layout)
-    _add_slide_header(slide4, "Recommended Actions & Next Steps", "Implementation roadmap based on verified sovereign analysis")
-
-    s4_box = slide4.shapes.add_textbox(Inches(1.2), Inches(2.0), Inches(11), Inches(4.5))
-    s4_tf = s4_box.text_frame
-    s4_tf.word_wrap = True
-
-    actions = [
-        "Review key findings with the unit operations and engineering leads.",
-        "Implement recommended maintenance or parameter adjustments.",
-        "Maintain audit trail and sovereign log records for compliance verification.",
-        "Follow up with subsequent telemetry and inspection passes.",
-    ]
-    for idx, act in enumerate(actions):
-        p = s4_tf.paragraphs[0] if idx == 0 else s4_tf.add_paragraph()
-        p.text = f"{idx + 1}.   {act}"
-        p.font.size = Pt(16)
-        p.font.color.rgb = DARK_SLATE
-        p.space_before = Pt(14)
+        pts = s_data.get("points") or []
+        for p_idx, pt in enumerate(pts):
+            p = s_tf.paragraphs[0] if p_idx == 0 else s_tf.add_paragraph()
+            p.text = f"•   {pt}"
+            p.font.size = Pt(16)
+            p.font.color.rgb = DARK_SLATE
+            p.space_before = Pt(12)
 
     prs.save(output_path)
     return filename
