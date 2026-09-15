@@ -118,14 +118,10 @@ def summarize_findings(raw_text: str, kb_context: str = "") -> tuple[list[str], 
     Returns (findings, source) where source is "model" or "stub" so the
     orchestrator can log honestly which path actually ran."""
     if config.USE_REAL_MODEL:
-        try:
-            messages = prompts.build_findings_prompt(raw_text, kb_context)
-            raw = _call_model("reasoning", messages)
-            findings = _parse_findings(raw)
-            if findings:
-                return findings, "model"
-        except Exception:  # noqa: BLE001 - any failure -> stub, never a crash
-            pass
+        messages = prompts.build_findings_prompt(raw_text, kb_context)
+        raw = _call_model("reasoning", messages)
+        findings = _parse_findings(raw)
+        return findings, "model"
 
     return _stub_summarize_findings(raw_text), "stub"
 
@@ -135,14 +131,10 @@ def generate_code(prompt: str) -> tuple[str, str]:
 
     Returns (code, source) where source is "model" or "stub"."""
     if config.USE_REAL_MODEL:
-        try:
-            messages = prompts.build_code_prompt(prompt)
-            raw = _call_model("code", messages)
-            code = _strip_code_fences(raw)
-            if code.strip():
-                return code, "model"
-        except Exception:  # noqa: BLE001
-            pass
+        messages = prompts.build_code_prompt(prompt)
+        raw = _call_model("code", messages)
+        code = _strip_code_fences(raw)
+        return code, "model"
 
     return _stub_generate_code(prompt), "stub"
 
@@ -155,15 +147,11 @@ def chat(
     when present. Returns (reply, source), same pattern as the other
     task functions."""
     if config.USE_REAL_MODEL:
-        try:
-            messages = prompts.build_chat_prompt(
-                history, kb_context, attached_text
-            )
-            reply = _call_model("reasoning", messages)
-            if reply.strip():
-                return reply, "model"
-        except Exception:  # noqa: BLE001
-            pass
+        messages = prompts.build_chat_prompt(
+            history, kb_context, attached_text
+        )
+        reply = _call_model("reasoning", messages)
+        return reply, "model"
 
     return _stub_chat_reply(history, attached_text), "stub"
 
