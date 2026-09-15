@@ -14,7 +14,7 @@ in orchestrator.py and the tools.
 """
 import os
 
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Depends, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -23,6 +23,17 @@ from . import model_router
 from . import orchestrator
 from .activity_log import read_log, clear_log
 from .tools.kb_tool import kb_status
+from . import chat_store
+from . import auth
+
+def get_current_user(authorization: str | None = Header(None)) -> str:
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    token = authorization.split(" ")[1]
+    user_id = auth.get_user_from_token(token)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+    return user_id
 from . import chat_store
 
 app = FastAPI(title="UrjaKavach Prototype API", version="0.2.0")
@@ -34,6 +45,52 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+@app.post("/api/auth/register")
+def register(
+    identifier: str = Form(...), 
+    password: str = Form(...),
+    name: str = Form(...),
+    profession: str = Form(...),
+    country: str = Form(...),
+    emp_code: str = Form(...),
+    github_id: str = Form(...)
+):
+    try:
+        user = auth.register_user(identifier, password, name, profession, country, emp_code, github_id)
+        return {"status": "ok", "user": user}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/api/auth/login")
+def login(identifier: str = Form(...), password: str = Form(...)):
+    try:
+        token = auth.authenticate_user(identifier, password)
+        return {"status": "ok", "token": token}
+    except ValueError as e:
+        raise HTTPException(status_code=401, detail=str(e))
+
+@app.get("/api/auth/me")
+def get_me(user_id: str = Depends(get_current_user)):
+    user_info = auth.get_user_info(user_id)
+    if not user_info:
+        raise HTTPException(status_code=404, detail="User not found")
+    return user_info
+
+
+from pydantic import BaseModel
+class ProfileUpdate(BaseModel):
+    name: str | None = None
+    profession: str | None = None
+    country: str | None = None
+
+@app.put("/api/auth/me")
+def update_me(profile: ProfileUpdate, user_id: str = Depends(get_current_user)):
+    success = auth.update_user_info(user_id, profile.dict(exclude_unset=True))
+    if not success:
+        raise HTTPException(status_code=404, detail="User not found")
+    return {"status": "ok"}
 
 @app.get("/api/health")
 def health():
@@ -105,6 +162,7 @@ def submit_chat_message(
     session_id: str | None = Form(None),
     message: str = Form(...),
     file: UploadFile | None = File(None),
+    user_id: str = Depends(get_current_user)
 ):
     """General-purpose chat — ask about uploaded docs/code or anything
     else. Grounded on the knowledge base when relevant, with
@@ -121,7 +179,7 @@ def submit_chat_message(
         )
 
     if not session_id or chat_store.load(session_id) is None:
-        session_id = chat_store.new_session()
+        session_id = chat_store.new_session(user_id)
 
     attachment_path = None
     attachment_type = None
@@ -147,21 +205,23 @@ def submit_chat_message(
 
 
 @app.get("/api/chat/sessions")
-def list_chat_sessions():
-    return {"sessions": chat_store.list_sessions()}
+def list_chat_sessions(user_id: str = Depends(get_current_user)):
+    return {"sessions": chat_store.list_sessions(user_id)}
 
 
 @app.get("/api/chat/sessions/{session_id}")
-def get_chat_session(session_id: str):
+def get_chat_session(session_id: str, user_id: str = Depends(get_current_user)):
     data = chat_store.load(session_id)
-    if data is None:
+    if data is None or data.get("user_id") != user_id:
         raise HTTPException(status_code=404, detail="Unknown session_id")
     return data
 
 
 @app.delete("/api/chat/sessions/{session_id}")
-def delete_chat_session(session_id: str):
-    chat_store.delete_session(session_id)
+def delete_chat_session(session_id: str, user_id: str = Depends(get_current_user)):
+    data = chat_store.load(session_id)
+    if data and data.get("user_id") == user_id:
+        chat_store.delete_session(session_id)
     return {"deleted": session_id}
 
 
