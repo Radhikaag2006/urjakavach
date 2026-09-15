@@ -18,12 +18,12 @@ from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
-
 from . import config
 from . import model_router
 from . import orchestrator
 from .activity_log import read_log, clear_log
 from .tools.kb_tool import kb_status
+from . import chat_store
 
 app = FastAPI(title="UrjaKavach Prototype API", version="0.2.0")
 
@@ -50,6 +50,7 @@ def health():
 
 @app.post("/api/tasks/document")
 def submit_document_task(
+    session_id: str | None = Form(None),
     use_sample: bool = Form(True),
     file: UploadFile | None = File(None),
 ):
@@ -81,7 +82,7 @@ def submit_document_task(
         raise HTTPException(status_code=404, detail=f"Image not found: {image_path}")
 
     try:
-        result = orchestrator.run_document_flow(image_path, source_name)
+        result = orchestrator.run_document_flow(image_path, source_name,session_id=session_id)
     except RuntimeError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
 
@@ -98,6 +99,70 @@ def submit_code_task(prompt: str = Form(...)):
         raise HTTPException(status_code=400, detail="Prompt too long (max 2000 characters)")
     result = orchestrator.run_code_flow(prompt)
     return JSONResponse(result)
+
+@app.post("/api/chat")
+def submit_chat_message(
+    session_id: str | None = Form(None),
+    message: str = Form(...),
+    file: UploadFile | None = File(None),
+):
+    """General-purpose chat — ask about uploaded docs/code or anything
+    else. Grounded on the knowledge base when relevant, with
+    per-session history persisted to disk."""
+    clear_log()
+    if not message.strip():
+        raise HTTPException(
+            status_code=400, detail="Message must not be empty"
+        )
+    if len(message) > 4000:
+        raise HTTPException(
+            status_code=400,
+            detail="Message too long (max 4000 characters)",
+        )
+
+    if not session_id or chat_store.load(session_id) is None:
+        session_id = chat_store.new_session()
+
+    attachment_path = None
+    attachment_type = None
+    if file is not None:
+        MAX_UPLOAD_BYTES = 15 * 1024 * 1024
+        content = file.file.read()
+        if len(content) > MAX_UPLOAD_BYTES:
+            raise HTTPException(
+                status_code=413, detail="File too large (max 15MB)"
+            )
+        if len(content) > 0:
+            attachment_path = os.path.join(
+                config.SAMPLES_DIR, f"chat_upload_{file.filename}"
+            )
+            with open(attachment_path, "wb") as f:
+                f.write(content)
+            attachment_type = file.content_type or ""
+
+    result = orchestrator.run_chat_flow(
+        session_id, message, attachment_path, attachment_type
+    )
+    return JSONResponse(result)
+
+
+@app.get("/api/chat/sessions")
+def list_chat_sessions():
+    return {"sessions": chat_store.list_sessions()}
+
+
+@app.get("/api/chat/sessions/{session_id}")
+def get_chat_session(session_id: str):
+    data = chat_store.load(session_id)
+    if data is None:
+        raise HTTPException(status_code=404, detail="Unknown session_id")
+    return data
+
+
+@app.delete("/api/chat/sessions/{session_id}")
+def delete_chat_session(session_id: str):
+    chat_store.delete_session(session_id)
+    return {"deleted": session_id}
 
 
 @app.get("/api/logs")
@@ -116,6 +181,69 @@ def get_output(filename: str):
         raise HTTPException(status_code=404, detail="Output not found")
     return FileResponse(path, filename=filename)
 
+@app.post("/api/chat")
+def submit_chat_message(
+    session_id: str | None = Form(None),
+    message: str = Form(...),
+    file: UploadFile | None = File(None),
+):
+    """General-purpose chat — ask about uploaded docs/code or anything
+    else. Grounded on the knowledge base when relevant, with
+    per-session history persisted to disk."""
+    clear_log()
+    if not message.strip():
+        raise HTTPException(
+            status_code=400, detail="Message must not be empty"
+        )
+    if len(message) > 4000:
+        raise HTTPException(
+            status_code=400,
+            detail="Message too long (max 4000 characters)",
+        )
+
+    if not session_id or chat_store.load(session_id) is None:
+        session_id = chat_store.new_session()
+
+    attachment_path = None
+    attachment_type = None
+    if file is not None:
+        MAX_UPLOAD_BYTES = 15 * 1024 * 1024
+        content = file.file.read()
+        if len(content) > MAX_UPLOAD_BYTES:
+            raise HTTPException(
+                status_code=413, detail="File too large (max 15MB)"
+            )
+        if len(content) > 0:
+            attachment_path = os.path.join(
+                config.SAMPLES_DIR, f"chat_upload_{file.filename}"
+            )
+            with open(attachment_path, "wb") as f:
+                f.write(content)
+            attachment_type = file.content_type or ""
+
+    result = orchestrator.run_chat_flow(
+        session_id, message, attachment_path, attachment_type
+    )
+    return JSONResponse(result)
+
+
+@app.get("/api/chat/sessions")
+def list_chat_sessions():
+    return {"sessions": chat_store.list_sessions()}
+
+
+@app.get("/api/chat/sessions/{session_id}")
+def get_chat_session(session_id: str):
+    data = chat_store.load(session_id)
+    if data is None:
+        raise HTTPException(status_code=404, detail="Unknown session_id")
+    return data
+
+
+@app.delete("/api/chat/sessions/{session_id}")
+def delete_chat_session(session_id: str):
+    chat_store.delete_session(session_id)
+    return {"deleted": session_id}
 
 # Serve sample images so the frontend can preview "what was scanned"
 app.mount("/samples", StaticFiles(directory=config.SAMPLES_DIR), name="samples")
