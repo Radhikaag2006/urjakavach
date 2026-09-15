@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html lang="en" data-theme="dark">
 <head>
 <meta charset="utf-8">
 <title>UrjaKavach — Sovereign AI Workbench</title>
@@ -9,120 +9,126 @@
 
 <div class="app">
 
-  <div class="titlebar">
-    <div class="dots">
-      <div class="dot red"></div><div class="dot yellow"></div><div class="dot green"></div>
-    </div>
-    <div class="title">urjakavach — Sovereign On-Premise Agentic AI Workbench</div>
-  </div>
-
-  <div class="body">
-
-    <div class="activitybar">
-      <div class="icon active" title="Explorer">&#128193;</div>
-      <div class="icon" title="Search">&#128269;</div>
-      <div class="icon" title="Source Control">&#8706;</div>
-      <div class="icon" title="Extensions">&#9638;</div>
+  <aside class="sidebar">
+    <div class="sidebar-top">
+      <div class="brand">UrjaKavach</div>
+      <button class="new-chat-btn" onclick="startNewChat()">+ New chat</button>
     </div>
 
-    <div class="sidebar">
-      <div class="sidebar-header">Demo Scenarios</div>
-      <div class="tree-item selected" data-panel="doc" onclick="selectScenario('doc')">
-        <span class="icon-dot" style="background:#569cd6;"></span>
-        <span>document_analysis.flow</span>
-        <span class="status-pill" id="pill-doc">ready</span>
-      </div>
-      <div class="tree-item" data-panel="code" onclick="selectScenario('code')">
-        <span class="icon-dot" style="background:#dcdcaa;"></span>
-        <span>code_generation.flow</span>
-        <span class="status-pill" id="pill-code">ready</span>
-      </div>
+    <div class="quick-actions">
+      <button class="quick-btn" onclick="openModal('docModal')">
+        <span class="qb-dot" style="background:#569cd6;"></span> Document Flow
+      </button>
+      <button class="quick-btn" onclick="openModal('codeModal')">
+        <span class="qb-dot" style="background:#dcdcaa;"></span> Code Flow
+      </button>
+    </div>
 
-      <div class="sidebar-header" style="margin-top:14px;">Input</div>
-      <div class="sidebar-section" id="docInputSection">
-        <p>Upload a scanned document or image, or use the bundled sample inspection report.</p>
-        <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
-          Click to upload document / image<br>(.png, .jpg, .jpeg)
-        </div>
-        <input type="file" id="fileInput" accept="image/png,image/jpeg" onchange="onFileChosen(event)">
-        <img id="filePreview" class="file-preview panel-hidden" alt="uploaded preview">
-        <div style="margin-top:10px; font-size:11.5px; color:var(--text-dim);">
-          <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
-            <input type="checkbox" id="useSampleToggle" checked onchange="toggleSample()">
-            Use bundled sample instead
-          </label>
+    <div class="history-header">Chats</div>
+    <div class="history-list" id="historyList"></div>
+
+    <div class="sidebar-bottom">
+      <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()">
+        <span id="themeIcon">&#9789;</span> <span id="themeLabel">Dark mode</span>
+      </button>
+      <div class="user-profile">
+        <div class="avatar">R</div>
+        <div class="user-info">
+          <div class="user-name">Radhika</div>
+          <div class="user-sub" id="healthLine">checking backend&hellip;</div>
         </div>
       </div>
-      <div class="sidebar-section panel-hidden" id="codeInputSection">
-        <p>Describe the coding task in plain English. The workbench routes it to a
-        code-specialised model and verifies the result by executing it in a sandbox.</p>
-      </div>
+    </div>
+  </aside>
 
-      <div class="sidebar-header" style="margin-top:14px;">System</div>
-      <div class="sidebar-section">
-        <p id="healthLine">checking backend&hellip;</p>
-        <p id="modelLine"></p>
-        <p id="kbLine"></p>
+  <main class="chat-main">
+    <div class="chat-header">
+      <div class="chat-title" id="chatTitle">New chat</div>
+      <button class="panel-toggle" id="panelToggleBtn" onclick="toggleActivityPanel()">
+        Activity &#9656;
+      </button>
+    </div>
+
+    <div class="chat-messages" id="chatMessages">
+      <div class="empty-state" id="emptyState">
+        <h2>UrjaKavach</h2>
+        <p>Sovereign on-premise AI workbench for MRPL. Ask a question, upload a
+        document or image, or run a demo flow from the sidebar. Nothing leaves
+        this machine.</p>
       </div>
     </div>
 
-    <div class="editor-area">
-
-      <div class="tabbar">
-        <div class="tab active" id="tab-doc" onclick="selectScenario('doc')">
-          <span class="dot" style="background:#569cd6;"></span> document_analysis.flow
-        </div>
-        <div class="tab" id="tab-code" onclick="selectScenario('code')">
-          <span class="dot" style="background:#dcdcaa;"></span> code_generation.flow
-        </div>
-      </div>
-
-      <div class="editor-content">
-
-        <div id="panel-doc">
-          <h2>Scenario 1 &mdash; Scanned Report to Approval Note</h2>
-          <div class="subtitle">
-            OCR (Tesseract) &rarr; plant knowledge-base grounding &rarr; reasoning model
-            &rarr; real .docx approval note. Runs entirely on-device.
-          </div>
-
-          <button class="run-btn" id="runDoc" onclick="runDocFlow()">Run Document Flow</button>
-
-          <div id="docResult"></div>
-        </div>
-
-        <div id="panel-code" class="panel-hidden">
-          <h2>Scenario 2 &mdash; Coding Task in Sandbox</h2>
-          <div class="subtitle">
-            Routed to the code model, then executed in an isolated sandbox to verify
-            it actually runs. Try <code class="inline">average</code>,
-            <code class="inline">prime</code>, or <code class="inline">sort</code>.
-          </div>
-
-          <textarea class="prompt" id="codePrompt" rows="4">Write code to compute the average of a list of numbers</textarea>
-          <br>
-          <button class="run-btn" id="runCode" onclick="runCodeFlow()">Run Code Flow</button>
-
-          <div id="codeResult"></div>
-        </div>
-
+    <div class="chat-input-area">
+      <div class="attach-preview panel-hidden" id="attachPreview"></div>
+      <div class="input-row">
+        <button class="attach-btn" title="Attach file"
+                onclick="document.getElementById('chatFileInput').click()">&#128206;</button>
+        <input type="file" id="chatFileInput" onchange="onChatFileChosen(event)">
+        <textarea id="chatInput" rows="1"
+                  placeholder="Ask anything, or describe a coding/document task…"
+                  onkeydown="onChatInputKeydown(event)"
+                  oninput="autoResize(this)"></textarea>
+        <button class="send-btn" id="sendBtn" onclick="sendChatMessage()">Send</button>
       </div>
     </div>
-  </div>
+  </main>
 
-  <div class="terminal-panel">
-    <div class="terminal-tabs"><div class="ttab">TERMINAL &mdash; activity log (audit trail)</div></div>
-    <div class="terminal-body" id="logPanel">
+  <aside class="activity-panel" id="activityPanel">
+    <div class="activity-header">
+      <span>Activity &mdash; audit log</span>
+      <button class="panel-close" onclick="toggleActivityPanel()">&times;</button>
+    </div>
+    <div class="activity-body" id="logPanel">
       <div class="term-line term-empty">$ waiting for a flow to run&hellip;</div>
     </div>
-  </div>
+    <div class="activity-footer">
+      <div id="modelLine"></div>
+      <div id="kbLine"></div>
+    </div>
+  </aside>
 
-  <div class="statusbar">
-    <span id="statusMode"><span class="dot-live"></span>on-premise &middot; 0 external calls</span>
-    <span class="sep">|</span>
-    <span id="statusFlow">no flow run yet</span>
-  </div>
+</div>
 
+<div class="modal-overlay panel-hidden" id="docModal">
+  <div class="modal">
+    <div class="modal-header">
+      <span>Document Flow &mdash; Scanned Report to Approval Note</span>
+      <button onclick="closeModal('docModal')">&times;</button>
+    </div>
+    <div class="modal-body">
+      <p class="modal-desc">
+        OCR (Tesseract) &rarr; plant knowledge-base grounding &rarr; reasoning model
+        &rarr; real .docx approval note.
+      </p>
+      <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+        Click to upload document / image<br>(.png, .jpg, .jpeg)
+      </div>
+      <input type="file" id="fileInput" accept="image/png,image/jpeg" onchange="onFileChosen(event)">
+      <img id="filePreview" class="file-preview panel-hidden" alt="uploaded preview">
+      <label class="sample-toggle">
+        <input type="checkbox" id="useSampleToggle" checked onchange="toggleSample()">
+        Use bundled sample instead
+      </label>
+      <button class="run-btn" id="runDoc" onclick="runDocFlow()">Run Document Flow</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay panel-hidden" id="codeModal">
+  <div class="modal">
+    <div class="modal-header">
+      <span>Code Flow &mdash; Coding Task in Sandbox</span>
+      <button onclick="closeModal('codeModal')">&times;</button>
+    </div>
+    <div class="modal-body">
+      <p class="modal-desc">
+        Routed to the code model, then executed in an isolated sandbox to verify
+        it actually runs.
+      </p>
+      <textarea class="prompt" id="codePrompt" rows="4">Write code to compute the average of a list of numbers</textarea>
+      <button class="run-btn" id="runCode" onclick="runCodeFlow()">Run Code Flow</button>
+    </div>
+  </div>
 </div>
 
 <script src="app.js"></script>

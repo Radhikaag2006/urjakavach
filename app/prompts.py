@@ -83,3 +83,38 @@ def build_code_prompt(prompt: str) -> list[dict]:
         {"role": "system", "content": CODE_SYSTEM_PROMPT},
         {"role": "user", "content": prompt},
     ]
+
+def build_chat_prompt(
+    history: list[dict],
+    kb_context: str = "",
+    attached_text: str = "",
+) -> list[dict]:
+    """General-purpose chat prompt, grounded on plant docs and/or an
+    attached file when available."""
+    system = (
+        "You are UrjaKavach, a sovereign on-premise assistant for MRPL "
+        "refinery engineers. Answer clearly and concisely. If plant "
+        "reference material or an attached document is provided below, "
+        "ground your answer in it and say so; otherwise answer from "
+        "general knowledge and note that no plant-specific grounding "
+        "was available."
+    )
+
+    context_parts = []
+    if kb_context:
+        context_parts.append(
+            "Relevant plant reference material:\n" + kb_context
+        )
+    if attached_text:
+        context_parts.append(
+            "Attached document content:\n" + attached_text[:4000]
+        )
+
+    messages = [{"role": "system", "content": system}]
+    if context_parts:
+        messages.append({
+            "role": "system",
+            "content": "\n\n".join(context_parts),
+        })
+    messages.extend(history)
+    return messages
