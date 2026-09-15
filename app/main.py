@@ -26,6 +26,8 @@ from .activity_log import read_log, clear_log
 from .tools.kb_tool import kb_status
 from . import chat_store
 from . import auth
+from .agents.agent_store import agent_store
+from .tools.registry import list_tools, get_tool, suggest_tools_for_intent
 
 def get_current_user(authorization: str | None = Header(None)) -> str:
     if not authorization or not authorization.startswith("Bearer "):
@@ -179,6 +181,7 @@ def submit_chat_message(
     message: str | None = Form(None),
     file: UploadFile | None = File(None),
     files: list[UploadFile] | None = File(None),
+    agent_id: str | None = Form(None),
     user_id: str = Depends(get_current_user)
 ):
     """General-purpose chat — ask about uploaded docs/code or anything
@@ -236,8 +239,119 @@ def submit_chat_message(
         session_id,
         clean_msg,
         attachments=attachments,
+        agent_id=agent_id,
     )
     return JSONResponse(result)
+
+
+# --------------------------------------------------------------------
+# Common Tools & Agent Onboarder Endpoints
+# --------------------------------------------------------------------
+class OnboardAgentRequest(BaseModel):
+    name: str
+    description: str
+    use_case_ids: list[str] = []
+    system_prompt: str
+    skill_content: str
+    tool_ids: list[str] = []
+    model_type: str = "reasoning"
+    department: str = "Custom Operations"
+    starter_prompts: list[str] = []
+
+
+class DraftSkillRequest(BaseModel):
+    role_name: str
+    description: str
+    use_cases: list[str] = []
+    guidelines: str = ""
+
+
+@app.get("/api/tools")
+def get_tools_catalog():
+    """Return all registered tools and their capabilities."""
+    return {"tools": list_tools()}
+
+
+@app.get("/api/tools/suggest")
+def suggest_tools(intent: str = ""):
+    """Suggest tool IDs for a given intent or use case."""
+    return {"suggested_tools": suggest_tools_for_intent(intent)}
+
+
+@app.get("/api/agents")
+def get_agents():
+    """List all registered agents in the common pool."""
+    return {
+        "agents": agent_store.list_agents(),
+        "use_cases": agent_store.list_all_use_cases(),
+    }
+
+
+@app.get("/api/agents/use-cases")
+def get_use_cases_catalog():
+    """Return distinct use cases with mapped agents (M:N directory)."""
+    return {"use_cases": agent_store.list_all_use_cases()}
+
+
+@app.get("/api/agents/search")
+def search_agents(q: str = "", limit: int = 5):
+    """Local air-gapped semantic search across use cases, agent names, and skills."""
+    return {"results": agent_store.search_agents(q, top_k=limit)}
+
+
+@app.get("/api/agents/{agent_id}")
+def get_agent_detail(agent_id: str):
+    ag = agent_store.get_agent(agent_id)
+    if not ag:
+        raise HTTPException(status_code=404, detail="Agent not found")
+    return ag
+
+
+@app.post("/api/agents/onboard")
+def onboard_agent(req: OnboardAgentRequest, user_id: str = Depends(get_current_user)):
+    """Onboard a new customizable agent with custom skill and tool selection."""
+    if not req.name.strip():
+        raise HTTPException(status_code=400, detail="Agent name is required")
+    if not req.description.strip():
+        raise HTTPException(status_code=400, detail="Agent description is required")
+    if not req.skill_content.strip():
+        raise HTTPException(status_code=400, detail="Skill content (SKILL.md) is required")
+
+    ag = agent_store.create_agent(
+        name=req.name,
+        description=req.description,
+        use_case_ids=req.use_case_ids,
+        system_prompt=req.system_prompt,
+        skill_content=req.skill_content,
+        tool_ids=req.tool_ids,
+        model_type=req.model_type,
+        department=req.department,
+        starter_prompts=req.starter_prompts,
+    )
+    return {"status": "ok", "agent": ag}
+
+
+@app.delete("/api/agents/{agent_id}")
+def delete_agent(agent_id: str, user_id: str = Depends(get_current_user)):
+    success = agent_store.delete_agent(agent_id)
+    if not success:
+        raise HTTPException(status_code=400, detail="Cannot delete agent (built-in or not found)")
+    return {"status": "ok", "deleted": agent_id}
+
+
+@app.post("/api/agents/draft-skill")
+def draft_skill(req: DraftSkillRequest):
+    """Recursive Meta-Agent: uses local reasoning model to draft a comprehensive SKILL.md."""
+    if not req.role_name.strip():
+        raise HTTPException(status_code=400, detail="Role name is required")
+    drafted_md = model_router.draft_skill_content(
+        role_name=req.role_name,
+        description=req.description,
+        use_cases=req.use_cases,
+        guidelines=req.guidelines,
+    )
+    return {"status": "ok", "skill_content": drafted_md}
+
 
 
 @app.get("/api/chat/sessions")

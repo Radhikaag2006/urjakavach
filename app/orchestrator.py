@@ -26,6 +26,7 @@ from .tools.docgen_tool import draft_approval_note
 from .tools.deliverable_builder import generate_presentation, generate_spreadsheet, parse_tabular_data
 from .tools.kb_tool import retrieve_context
 from . import chat_store
+from .agents.agent_store import agent_store
 
 MAX_CODE_ATTEMPTS = 2
 
@@ -188,21 +189,24 @@ def run_chat_flow(
     attachment_type: str | None = None,
     attachment_name: str | None = None,
     attachments: list[dict] | None = None,
+    agent_id: str | None = None,
 ) -> dict:
-    """General-purpose chat: answer a free-form question with multi-document support.
+    """General-purpose chat: answer a free-form question with multi-document and agent support.
 
-    If one or multiple images or documents are attached:
-    1. Extracts text from each (OCR for images, pdf text for PDF, docx, or raw text).
-    2. Runs plant knowledge-base retrieval (RAG).
-    3. Extracts structured findings and summaries.
-    4. Appends each document into Session Memory M1 under session_id (co-existing).
-    5. Stores the message with unique message_id and attached documents list.
-
-    All subsequent prompts in this session remain grounded across all attached documents.
+    If an agent_id is provided, the agent's domain SKILL.md, system prompt,
+    and permitted tools are dynamically bound to the execution pipeline.
     """
     task_id = str(uuid.uuid4())[:8]
     if not session_id or chat_store.load(session_id) is None:
         session_id = chat_store.new_session()
+
+    active_agent = agent_store.get_agent(agent_id) if agent_id else None
+    if active_agent:
+        log_step(
+            task_id, "agent:context",
+            f"Active Agent: {active_agent['name']} ({active_agent['id']})",
+            {"department": active_agent.get("department"), "tools": active_agent.get("tool_ids", [])}
+        )
 
     # Normalize single attachment args into attachments list
     effective_attachments: list[dict] = []
@@ -218,7 +222,7 @@ def run_chat_flow(
     att_summary = ", ".join(a.get("name", "doc") for a in effective_attachments)
     log_step(
         task_id, "plan",
-        f"Chat message received -> {message[:80]!r}" + (f" (with {len(effective_attachments)} attachment(s): {att_summary})" if effective_attachments else ""),
+        f"Chat message received -> {message[:80]!r}" + (f" (with {len(effective_attachments)} attachment(s): {att_summary})" if effective_attachments else "") + (f" [Agent: {active_agent['name']}]" if active_agent else ""),
     )
 
     extracted_texts = []
@@ -291,6 +295,16 @@ def run_chat_flow(
                 "Retrieved relevant plant reference material",
             )
 
+    if active_agent:
+        agent_context_block = (
+            f"=== ACTIVE AGENT: {active_agent['name']} ===\n"
+            f"Department: {active_agent.get('department', 'Engineering')}\n"
+            f"Role Instructions: {active_agent.get('system_prompt', '')}\n\n"
+            f"=== DOMAIN SKILL SPECIFICATION ({active_agent.get('skill_filename', 'SKILL.md')}) ===\n"
+            f"{active_agent.get('skill_content', '')}\n"
+        )
+        kb_contexts.insert(0, agent_context_block)
+
     combined_kb_context = "\n\n".join(filter(None, kb_contexts))
 
     # Backward compatibility payload
@@ -337,6 +351,12 @@ def run_chat_flow(
     should_run_code = any(k in msg_lower for k in coding_triggers) or (
         has_code_attachment and any(w in msg_lower for w in ["run", "execute", "test", "output", "verify", "debug", "solve", "compile", "calculate"])
     )
+
+    # Enforce agent tool permissions if restricted
+    permitted_tools = set(active_agent.get("tool_ids", [])) if (active_agent and active_agent.get("tool_ids")) else None
+    if permitted_tools is not None:
+        if "sandbox_tool" not in permitted_tools:
+            should_run_code = False
 
     if should_run_code:
         log_step(
@@ -385,6 +405,14 @@ def run_chat_flow(
     should_docx = any(k in msg_lower for k in docx_triggers) or (
         not (should_ppt or should_excel or should_csv) and any(k in msg_lower for k in ["report", "deliverable"])
     )
+
+    if permitted_tools is not None:
+        if "deliverable_builder" not in permitted_tools:
+            should_ppt = False
+            should_excel = False
+            should_csv = False
+        if "docgen_tool" not in permitted_tools:
+            should_docx = False
 
     if should_ppt or should_excel or should_csv or should_docx:
         source_doc_name = (
@@ -521,4 +549,5 @@ def run_chat_flow(
         "code_result": code_deliverable,
         "doc_result": doc_deliverable,
         "text_deliverable": text_deliverable,
+        "agent": active_agent,
     }

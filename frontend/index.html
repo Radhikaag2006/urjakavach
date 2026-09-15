@@ -46,6 +46,9 @@
     </div>
 
     <div class="quick-actions">
+      <button class="quick-btn agent-hub-btn" onclick="openModal('agentHubModal')">
+        <span class="qb-dot" style="background:#4ec9b0;"></span> 🤖 Agents Hub
+      </button>
       <button class="quick-btn" onclick="openModal('docModal')">
         <span class="qb-dot" style="background:#569cd6;"></span> Document Flow
       </button>
@@ -75,7 +78,14 @@
 
   <main class="chat-main">
     <div class="chat-header">
-      <div class="chat-title" id="chatTitle">New chat</div>
+      <div class="chat-header-left">
+        <div class="chat-title" id="chatTitle">New chat</div>
+        <div class="active-agent-pill" id="activeAgentPill" onclick="openModal('agentHubModal')" title="Click to switch or onboard domain agents">
+          <span class="agent-icon">🤖</span>
+          <span id="activeAgentName">General Engineering Agent</span>
+          <span class="agent-change-badge">Change ▾</span>
+        </div>
+      </div>
       <button class="panel-toggle" id="panelToggleBtn" onclick="toggleActivityPanel()">
         Activity &#9656;
       </button>
@@ -181,6 +191,106 @@
         <input type="text" id="editProfession" placeholder="Profession" />
         <input type="text" id="editCountry" placeholder="Country" />
         <button class="btn-primary" onclick="handleUpdateProfile()">Save Changes</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay panel-hidden" id="agentHubModal">
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <span>⚡ Agent Hub &amp; Onboarder &mdash; Industrial Domain Specialists</span>
+      <button onclick="closeModal('agentHubModal')">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="agent-tabs">
+        <button class="agent-tab active" id="tabDiscoverBtn" onclick="switchAgentTab('discover')">🔍 Use Cases &amp; Discovery</button>
+        <button class="agent-tab" id="tabOnboardBtn" onclick="switchAgentTab('onboard')">➕ Onboard New Agent</button>
+      </div>
+
+      <!-- Tab 1: Discover & Semantic Search -->
+      <div id="tabDiscover" class="agent-tab-content">
+        <div class="agent-search-bar">
+          <input type="text" id="agentSearchInput" placeholder="Search by intent or use case (e.g. 'heat exchanger fouling', 'piping wall thickness', 'shift handover')..." oninput="debounceAgentSearch()" />
+          <button class="btn-primary" onclick="searchAgentsAction()">Search</button>
+        </div>
+        <div class="use-cases-chips-row" id="useCaseChipsRow">
+          <!-- Dynamically filled with use case badges -->
+        </div>
+        <div class="agents-grid" id="agentsGrid">
+          <!-- Dynamically filled with agent cards -->
+        </div>
+      </div>
+
+      <!-- Tab 2: Onboard New Agent -->
+      <div id="tabOnboard" class="agent-tab-content panel-hidden">
+        <form id="onboardAgentForm" onsubmit="handleOnboardSubmit(event)">
+          <div class="form-row">
+            <div class="form-group flex-1">
+              <label>Agent Role Name *</label>
+              <input type="text" id="newAgentName" placeholder="e.g. Crude Desalter Emulsion Specialist" required oninput="onNewAgentInfoChange()" />
+            </div>
+            <div class="form-group flex-1">
+              <label>Department / Plant Unit</label>
+              <input type="text" id="newAgentDept" placeholder="e.g. CDU-1 / Technical Services" />
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Description &amp; Operational Scope *</label>
+            <input type="text" id="newAgentDesc" placeholder="e.g. Monitors desalter water carryover, grid voltage, and rag layer thickness" required oninput="onNewAgentInfoChange()" />
+          </div>
+
+          <div class="form-group">
+            <label>Use Case IDs / Tags (comma-separated) *</label>
+            <input type="text" id="newAgentUseCases" placeholder="e.g. desalter_emulsion, crude_processing, salt_in_crude" required />
+            <small class="field-hint">M:N mapping &mdash; this agent will be semantically indexed under these use case IDs.</small>
+          </div>
+
+          <div class="form-group">
+            <label>System Role &amp; Prompt Definition *</label>
+            <textarea id="newAgentPrompt" rows="3" placeholder="You are an autonomous desalter specialist. Calculate water drop rate and warn on electrical grid trips." required></textarea>
+          </div>
+
+          <!-- Skill File Upload or Meta-Agent AI Draft -->
+          <div class="form-group">
+            <div class="skill-header-row">
+              <label>Domain Skill Specification (SKILL.md) *</label>
+              <button type="button" class="btn-ai-draft" id="btnAiDraftSkill" onclick="draftSkillWithAi()">
+                ✨ AI Draft Skill (Meta-Agent)
+              </button>
+            </div>
+            <div class="skill-upload-row">
+              <input type="file" id="skillFileInput" accept=".md,.txt" onchange="onSkillFileChosen(event)" style="display:none" />
+              <button type="button" class="btn-secondary" onclick="document.getElementById('skillFileInput').click()">📁 Upload SKILL.md / SOP File</button>
+              <span id="skillFileNameHint" class="file-hint-text">No file chosen (or write markdown below)</span>
+            </div>
+            <textarea id="newAgentSkill" rows="6" placeholder="# Domain Skill Specification&#10;Enter standard operating procedures, equations, or click 'AI Draft Skill' above..." required></textarea>
+          </div>
+
+          <!-- Suggested & Allowed Tools -->
+          <div class="form-group">
+            <label>Permitted Tools (Select which tools this agent can execute):</label>
+            <div class="tools-checklist" id="toolsChecklist">
+              <!-- Dynamically populated from /api/tools with suggestions highlighted -->
+            </div>
+          </div>
+
+          <!-- Model Routing -->
+          <div class="form-row">
+            <div class="form-group flex-1">
+              <label>Primary Model Architecture</label>
+              <select id="newAgentModel">
+                <option value="reasoning" selected>Reasoning Model (Llama-3.2-3B / DeepSeek)</option>
+                <option value="coding">Coding Model (Qwen2.5-Coder-1.5B)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-actions">
+            <button type="submit" class="btn-primary btn-lg" id="btnSubmitOnboard">🚀 Onboard &amp; Launch Agent</button>
+          </div>
+        </form>
       </div>
     </div>
   </div>

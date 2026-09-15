@@ -32,7 +32,9 @@ KB_DIR = os.path.join(APP_DIR, "kb")
 KB_DOCUMENTS_DIR = os.path.join(KB_DIR, "documents")
 KB_INDEX_DIR = os.path.join(KB_DIR, "index")
 
-for _d in (OUTPUTS_DIR, LOGS_DIR, KB_DOCUMENTS_DIR):
+AGENTS_DATA_DIR = os.path.join(LOGS_DIR, "agents")
+
+for _d in (OUTPUTS_DIR, LOGS_DIR, KB_DOCUMENTS_DIR, AGENTS_DATA_DIR):
     os.makedirs(_d, exist_ok=True)
 
 # The interpreter running this process. NEVER hardcode "python3" —

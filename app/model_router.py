@@ -463,3 +463,50 @@ def _stub_chat_reply(
         )
 
     return f"You said: \"{last_user}\".{note}"
+
+
+def draft_skill_content(
+    role_name: str,
+    description: str,
+    use_cases: list[str] | None = None,
+    guidelines: str = "",
+) -> str:
+    """Invokes the Meta-Agent (reasoning model) to draft a structured SKILL.md file."""
+    if config.USE_REAL_MODEL:
+        msgs = prompts.build_skill_draft_prompt(role_name, description, use_cases, guidelines)
+        try:
+            raw = _call_model("reasoning", msgs)
+            if raw and len(raw.strip()) > 100:
+                return raw.strip()
+        except Exception:
+            pass
+
+    # High-quality fallback template
+    uc_str = ", ".join(use_cases) if use_cases else "Industrial Domain Engineering"
+    return f"""# {role_name} Skill Specification
+
+## 1. Domain Scope & Objectives
+The {role_name} is an autonomous agent specialized in {description}.
+It is designed to automate analysis, perform verification, and generate authoritative industrial deliverables for the following use cases:
+- {uc_str}
+
+## 2. Applicable Standards & Codes
+- Relevant Industrial & Engineering Standards (e.g. ASME, API, TEMA, ISO, OISD).
+- Facility Standard Operating Procedures (SOPs) and safety guidelines.
+
+## 3. Core Calculations & Technical Rules
+- Maintain strict dimensional units across all calculations (e.g. SI / Imperial).
+- Calculate key technical indicators, efficiencies, and variances deterministically.
+- When calculations involve complex mathematical equations, execute Python code via the sandbox.
+
+## 4. Operational Guardrails & Safety Thresholds
+- Always highlight any critical anomaly, over-pressure, or over-temperature condition.
+- Maintain zero tolerance for invented/hallucinated equipment tags or telemetry values.
+- Verify remaining operational limits against standard design baselines.
+
+## 5. Expected Deliverable Formats
+- **Technical Slides (.pptx)**: High-level overview, engineering methodology, findings, and recommendations.
+- **Data Spreadsheets (.xlsx)**: Tabular telemetry, parameters, and status indicators with auto-fitted widths.
+- **Formal Memos (.docx)**: Comprehensive engineering memos with standard PSU headers.
+"""
+

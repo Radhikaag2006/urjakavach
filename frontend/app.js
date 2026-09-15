@@ -572,6 +572,7 @@ async function sendChatMessage() {
     const form = new FormData();
     form.append("message", message || "Please analyze and summarize the attached document(s).");
     if (currentSessionId) form.append("session_id", currentSessionId);
+    if (activeAgent && activeAgent.id) form.append("agent_id", activeAgent.id);
     for (const f of filesToSend) {
       form.append("files", f);
     }
@@ -583,6 +584,9 @@ async function sendChatMessage() {
     const data = JSON.parse(rawText);
     currentSessionId = data.session_id;
 
+    const agentTag = (data.agent && data.agent.name)
+      ? '<span class="tag" style="background:rgba(78,201,176,0.18);color:#4ec9b0;border-color:rgba(78,201,176,0.4);">🤖 ' + escapeHtml(data.agent.name) + '</span>'
+      : '';
     const sourceTag = data.source === "model"
       ? '<span class="tag tag-ok">local model</span>'
       : '<span class="tag">stub mode</span>';
@@ -598,7 +602,7 @@ async function sendChatMessage() {
       '<div class="msg-text">' + formattedText + "</div>" +
       deliverablesHtml +
       actionsToolbar +
-      '<div class="msg-tags">' + sourceTag + groundedTag + "</div>";
+      '<div class="msg-tags">' + agentTag + sourceTag + groundedTag + "</div>";
 
     await refreshLogs();
     await loadHistory();
@@ -896,4 +900,372 @@ async function runCodeFlow() {
 })();
 
 loadHistory();
+
+/* ---------------------------------------------------------------- */
+/* Agent Hub & Onboarder Logic                                      */
+/* ---------------------------------------------------------------- */
+let activeAgent = null;
+let allAgentsList = [];
+let allUseCasesList = [];
+let allRegisteredTools = [];
+let selectedUseCaseFilter = null;
+let agentSearchTimeout = null;
+
+async function initAgentHub() {
+  try {
+    const [agentsRes, toolsRes] = await Promise.all([
+      fetch(API + "/api/agents", { headers: getAuthHeaders() }),
+      fetch(API + "/api/tools", { headers: getAuthHeaders() })
+    ]);
+
+    if (agentsRes.ok) {
+      const aData = await agentsRes.json();
+      allAgentsList = aData.agents || [];
+      allUseCasesList = aData.use_cases || [];
+    }
+
+    if (toolsRes.ok) {
+      const tData = await toolsRes.json();
+      allRegisteredTools = tData.tools || [];
+      renderToolsChecklist(allRegisteredTools);
+    }
+
+    // Default to general engineering agent if available, or first agent
+    if (!activeAgent && allAgentsList.length > 0) {
+      const defaultAgent = allAgentsList.find(a => a.id === "agent_general") || allAgentsList[0];
+      selectAgent(defaultAgent.id, false);
+    }
+
+    renderUseCaseChips();
+    renderAgentGrid(allAgentsList);
+  } catch (err) {
+    console.warn("Failed to initialize Agent Hub:", err);
+  }
+}
+
+function switchAgentTab(tabName) {
+  const isDiscover = tabName === 'discover';
+  document.getElementById('tabDiscover').classList.toggle('panel-hidden', !isDiscover);
+  document.getElementById('tabOnboard').classList.toggle('panel-hidden', isDiscover);
+  document.getElementById('tabDiscoverBtn').classList.toggle('active', isDiscover);
+  document.getElementById('tabOnboardBtn').classList.toggle('active', !isDiscover);
+}
+
+function renderUseCaseChips() {
+  const container = document.getElementById("useCaseChipsRow");
+  if (!container) return;
+
+  let html = '<button class="use-case-chip ' + (!selectedUseCaseFilter ? 'active' : '') + '" onclick="filterByUseCase(null)">All Use Cases</button>';
+  for (const uc of allUseCasesList) {
+    const isAct = selectedUseCaseFilter === uc.use_case_id;
+    html += `<button class="use-case-chip ${isAct ? 'active' : ''}" onclick="filterByUseCase('${escapeHtml(uc.use_case_id)}')">${escapeHtml(uc.title)} (${uc.agent_count})</button>`;
+  }
+  container.innerHTML = html;
+}
+
+function renderAgentGrid(agents, searchResults = null) {
+  const grid = document.getElementById("agentsGrid");
+  if (!grid) return;
+
+  if (!agents || agents.length === 0) {
+    grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:30px;color:var(--text-dim);">' +
+      'No specialized agents found for this use case. <br><button class="btn-primary" style="margin-top:10px;" onclick="switchAgentTab(\'onboard\')">➕ Onboard New Agent</button>' +
+      '</div>';
+    return;
+  }
+
+  let html = "";
+  for (const ag of agents) {
+    const isCurrent = activeAgent && activeAgent.id === ag.id;
+    const badgeClass = ag.is_builtin ? "agent-badge builtin" : "agent-badge";
+    const badgeLabel = ag.is_builtin ? "Standard PSU" : "Custom Onboarded";
+    
+    // Tools list
+    const toolBadges = (ag.tool_ids || []).map(t => `<span class="agent-tool-tag">${escapeHtml(t.replace('_', ' '))}</span>`).join("");
+    
+    // Use case tags
+    const ucTags = (ag.use_case_ids || []).slice(0, 3).map(u => `<span class="agent-tag">${escapeHtml(u.replace('_', ' '))}</span>`).join("");
+
+    // Score if search result
+    let scoreHtml = "";
+    if (searchResults && searchResults[ag.id]) {
+      const matchData = searchResults[ag.id];
+      scoreHtml = `<span class="agent-match-score">★ Match ${matchData.score}</span>`;
+    }
+
+    html += `
+      <div class="agent-card">
+        <div>
+          <div class="agent-card-header">
+            <div>
+              <div class="agent-card-title">${escapeHtml(ag.name)}</div>
+              <div class="agent-card-dept">${escapeHtml(ag.department || 'Engineering')}</div>
+            </div>
+            <span class="${badgeClass}">${badgeLabel}</span>
+          </div>
+          <div class="agent-card-desc">${escapeHtml(ag.description)}</div>
+          <div class="agent-card-tags">
+            ${ucTags}
+            ${toolBadges}
+          </div>
+        </div>
+        <div class="agent-card-footer">
+          ${scoreHtml || '<span style="font-size:11px;color:var(--text-dim);">' + (ag.model_type || 'reasoning') + ' model</span>'}
+          <button class="btn-launch-agent ${isCurrent ? 'active-agent-btn' : ''}" onclick="selectAgent('${ag.id}', true)">
+            ${isCurrent ? '✓ Active Agent' : 'Launch Agent ⚡'}
+          </button>
+        </div>
+      </div>
+    `;
+  }
+  grid.innerHTML = html;
+}
+
+function debounceAgentSearch() {
+  clearTimeout(agentSearchTimeout);
+  agentSearchTimeout = setTimeout(() => {
+    searchAgentsAction();
+  }, 300);
+}
+
+async function searchAgentsAction() {
+  const query = (document.getElementById("agentSearchInput").value || "").trim();
+  if (!query) {
+    filterByUseCase(selectedUseCaseFilter);
+    return;
+  }
+
+  try {
+    const res = await fetch(API + `/api/agents/search?q=${encodeURIComponent(query)}&limit=6`, {
+      headers: getAuthHeaders()
+    });
+    if (!res.ok) throw new Error("Search failed");
+    const data = await res.json();
+    const results = data.results || [];
+    
+    const matchedAgents = [];
+    const searchScoreMap = {};
+    for (const r of results) {
+      if (r.agent) {
+        matchedAgents.push(r.agent);
+        searchScoreMap[r.agent.id] = r;
+      }
+    }
+    renderAgentGrid(matchedAgents, searchScoreMap);
+  } catch (err) {
+    console.error("Semantic search error:", err);
+  }
+}
+
+function filterByUseCase(useCaseId) {
+  selectedUseCaseFilter = useCaseId;
+  renderUseCaseChips();
+
+  if (!useCaseId) {
+    renderAgentGrid(allAgentsList);
+    return;
+  }
+
+  const filtered = allAgentsList.filter(ag => (ag.use_case_ids || []).includes(useCaseId));
+  renderAgentGrid(filtered);
+}
+
+function selectAgent(agentId, closeModalAfter = true) {
+  const ag = allAgentsList.find(a => a.id === agentId);
+  if (!ag) return;
+
+  activeAgent = ag;
+  const pillName = document.getElementById("activeAgentName");
+  if (pillName) pillName.textContent = ag.name;
+
+  // Update prompt chips if empty state is visible
+  const emptyState = document.getElementById("emptyState");
+  if (emptyState && ag.starter_prompts && ag.starter_prompts.length > 0) {
+    const chipsContainer = emptyState.querySelector(".prompt-chips");
+    if (chipsContainer) {
+      chipsContainer.innerHTML = ag.starter_prompts.map(p => 
+        `<button class="chip" onclick="quickPrompt('${escapeHtml(p)}')">⚡ ${escapeHtml(p)}</button>`
+      ).join("");
+    }
+  }
+
+  // Update button states in grid
+  renderAgentGrid(allAgentsList);
+
+  if (closeModalAfter) {
+    closeModal("agentHubModal");
+  }
+}
+
+function renderToolsChecklist(tools, suggestedToolIds = []) {
+  const container = document.getElementById("toolsChecklist");
+  if (!container) return;
+
+  let html = "";
+  for (const t of tools) {
+    const isSuggested = suggestedToolIds.includes(t.id);
+    const isChecked = isSuggested || t.is_default;
+    html += `
+      <label class="tool-check-item">
+        <input type="checkbox" name="onboard_tool" value="${t.id}" ${isChecked ? 'checked' : ''} />
+        <div>
+          <div class="tool-check-label">
+            ${escapeHtml(t.name)}
+            ${isSuggested ? '<span class="tool-suggested-tag">Suggested</span>' : ''}
+          </div>
+          <div class="tool-check-desc">${escapeHtml(t.description)}</div>
+        </div>
+      </label>
+    `;
+  }
+  container.innerHTML = html;
+}
+
+let suggestToolsTimeout = null;
+function onNewAgentInfoChange() {
+  clearTimeout(suggestToolsTimeout);
+  suggestToolsTimeout = setTimeout(async () => {
+    const name = document.getElementById("newAgentName").value || "";
+    const desc = document.getElementById("newAgentDesc").value || "";
+    const intent = `${name} ${desc}`;
+    if (intent.trim().length > 5) {
+      try {
+        const res = await fetch(API + `/api/tools/suggest?intent=${encodeURIComponent(intent)}`, {
+          headers: getAuthHeaders()
+        });
+        if (res.ok) {
+          const data = await res.json();
+          renderToolsChecklist(allRegisteredTools, data.suggested_tools || []);
+        }
+      } catch (e) {}
+    }
+  }, 400);
+}
+
+function onSkillFileChosen(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  document.getElementById("skillFileNameHint").textContent = `Loaded: ${file.name} (${Math.round(file.size/1024)} KB)`;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    document.getElementById("newAgentSkill").value = e.target.result;
+  };
+  reader.readAsText(file);
+}
+
+async function draftSkillWithAi() {
+  const name = (document.getElementById("newAgentName").value || "").trim();
+  const desc = (document.getElementById("newAgentDesc").value || "").trim();
+  const ucs = (document.getElementById("newAgentUseCases").value || "").trim();
+  const prompt = (document.getElementById("newAgentPrompt").value || "").trim();
+
+  if (!name) {
+    alert("Please provide at least an Agent Role Name before drafting with AI.");
+    document.getElementById("newAgentName").focus();
+    return;
+  }
+
+  const draftBtn = document.getElementById("btnAiDraftSkill");
+  const origText = draftBtn.textContent;
+  draftBtn.disabled = true;
+  draftBtn.textContent = "⏳ Drafting SKILL.md with Meta-Agent...";
+
+  const useCaseList = ucs.split(",").map(s => s.trim()).filter(Boolean);
+
+  try {
+    const res = await fetch(API + "/api/agents/draft-skill", {
+      method: "POST",
+      headers: { ...getAuthHeaders(), "Content-Type": "application/json" },
+      body: JSON.stringify({
+        role_name: name,
+        description: desc || name,
+        use_cases: useCaseList,
+        guidelines: prompt,
+      })
+    });
+
+    if (!res.ok) throw new Error("Failed to draft skill");
+    const data = await res.json();
+    document.getElementById("newAgentSkill").value = data.skill_content || "";
+    document.getElementById("skillFileNameHint").textContent = "✨ Drafted by AI Meta-Agent (Llama-3.2-3B)";
+  } catch (err) {
+    alert("Skill drafting error: " + err.message);
+  } finally {
+    draftBtn.disabled = false;
+    draftBtn.textContent = origText;
+  }
+}
+
+async function handleOnboardSubmit(event) {
+  event.preventDefault();
+
+  const name = document.getElementById("newAgentName").value.trim();
+  const dept = document.getElementById("newAgentDept").value.trim();
+  const desc = document.getElementById("newAgentDesc").value.trim();
+  const ucs = document.getElementById("newAgentUseCases").value.trim();
+  const prompt = document.getElementById("newAgentPrompt").value.trim();
+  const skill = document.getElementById("newAgentSkill").value.trim();
+  const model = document.getElementById("newAgentModel").value;
+
+  const checkedBoxes = document.querySelectorAll('input[name="onboard_tool"]:checked');
+  const toolIds = Array.from(checkedBoxes).map(cb => cb.value);
+
+  const useCaseList = ucs.split(",").map(s => s.trim().toLowerCase().replace(/\s+/g, "_")).filter(Boolean);
+
+  const payload = {
+    name,
+    department: dept || "Custom Operations",
+    description: desc,
+    use_case_ids: useCaseList,
+    system_prompt: prompt,
+    skill_content: skill,
+    tool_ids: toolIds,
+    model_type: model,
+    starter_prompts: [
+      `Analyze latest data using ${name}.`,
+      `Generate a technical deliverable for ${useCaseList[0] || 'engineering'}.`
+    ]
+  };
+
+  const submitBtn = document.getElementById("btnSubmitOnboard");
+  submitBtn.disabled = true;
+  submitBtn.textContent = "⏳ Onboarding Agent...";
+
+  try {
+    const res = await fetch(API + "/api/agents/onboard", {
+      method: "POST",
+      headers: { ...getAuthHeaders(), "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+
+    if (!res.ok) {
+      const errData = await res.json();
+      throw new Error(errData.detail || "Failed to onboard agent");
+    }
+
+    const data = await res.json();
+    const onboardedAgent = data.agent;
+
+    // Refresh agent store lists
+    await initAgentHub();
+
+    // Launch newly created agent
+    selectAgent(onboardedAgent.id, true);
+
+    // Reset form and switch back to discover tab
+    document.getElementById("onboardAgentForm").reset();
+    switchAgentTab("discover");
+    alert(`🎉 Successfully onboarded '${onboardedAgent.name}'! It is now active in your chat session.`);
+  } catch (err) {
+    alert("Onboarding failed: " + err.message);
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.textContent = "🚀 Onboard & Launch Agent";
+  }
+}
+
+// Initialize Agent Hub on load
+initAgentHub();
+
 

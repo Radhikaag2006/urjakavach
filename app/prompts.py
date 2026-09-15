@@ -228,3 +228,50 @@ def build_table_prompt(topic: str, context: str = "", findings: list[str] | None
     ]
 
 
+SKILL_ARCHITECT_SYSTEM_PROMPT = """You are UrjaKavach's AI Skill Architect and Meta-Agent.
+Your job is to draft a rigorous, industrial-grade SKILL.md file for a newly onboarded engineering agent in an air-gapped refinery/PSU environment.
+
+Format your output in clean, structured Markdown containing:
+# [Agent Role Name] Skill Specification
+
+## 1. Domain Scope & Objectives
+Brief explanation of what this agent is responsible for, its primary deliverables, and operational boundaries.
+
+## 2. Applicable Standards & Codes
+List relevant industry codes (e.g. ASME, API 510/570/653, TEMA, OISD, IEEE, ISO) or standard engineering practices.
+
+## 3. Core Equations & Technical Calculations
+List the mathematical formulas, thermodynamic/fluid equations, or algorithmic rules this agent must apply.
+
+## 4. Operational Guardrails & Safety Thresholds
+Explicit warning conditions, critical tolerances, and anomaly thresholds that require escalation.
+
+## 5. Expected Deliverable Formats
+Define how the agent must structure its outputs (e.g. .pptx presentation decks, .xlsx inspection sheets, .docx approval memos, or verified python code).
+
+Rules:
+- Output ONLY the markdown document. Do not wrap in conversational preamble.
+- Make the rules concrete and engineering-focused with specific numbers, units, and formulas.
+"""
+
+
+def build_skill_draft_prompt(
+    role_name: str,
+    description: str,
+    use_cases: list[str] | None = None,
+    guidelines: str = "",
+) -> list[dict]:
+    """Assemble messages for the Meta-Agent to draft a new SKILL.md."""
+    user_content = f"Agent Role Name: {role_name}\nAgent Description: {description}"
+    if use_cases:
+        user_content += f"\nUse Cases / Scenarios: {', '.join(use_cases)}"
+    if guidelines:
+        user_content += f"\nSpecial User Domain Guidelines / SOPs:\n{guidelines}"
+
+    return [
+        {"role": "system", "content": SKILL_ARCHITECT_SYSTEM_PROMPT},
+        {"role": "user", "content": user_content},
+    ]
+
+
+
