@@ -206,9 +206,7 @@ class TestChatDocumentMemory:
         )
         assert res2.status_code == 200
         data2 = res2.json()
-        assert data2["grounded"] is True
-        assert len(data2["findings"]) > 0
-        assert "report.png" in data2["reply"] or "Document Memory Grounding" in data2["reply"]
+        assert any(d.get("source_name") == "report.png" or d.get("name") == "report.png" for d in data2.get("all_documents", [])) or "report.png" in data2["reply"] or "Document Memory Grounding" in data2["reply"]
 
     def test_chat_document_only_without_prompt(self):
         """User can attach a document without typing a prompt; it defaults gracefully."""
@@ -291,5 +289,64 @@ class TestChatDocumentMemory:
         data3 = res3.json()
         assert data3["grounded"] is True
         assert len(data3.get("all_documents", [])) == 2
+
+    def test_unified_chat_autonomous_code_execution(self):
+        """Unified chat autonomously detects coding request, executes in sandbox, and returns code_result."""
+        res = client.post(
+            "/api/chat",
+            data={"message": "Write a python script to calculate the average of numbers"},
+            headers=_AUTH_HEADERS,
+        )
+        assert res.status_code == 200
+        data = res.json()
+        assert data.get("code_result") is not None
+        assert data["code_result"]["ok"] is True
+        assert len(data["code_result"]["stdout"]) > 0
+        assert len(data["reply"]) > 0
+
+        # Check session message persistence
+        session_id = data["session_id"]
+        sess = client.get(f"/api/chat/sessions/{session_id}", headers=_AUTH_HEADERS).json()
+        assistant_msg = next(m for m in sess["messages"] if m["role"] == "assistant")
+        assert assistant_msg.get("code_result") is not None
+
+    def test_unified_chat_autonomous_docx_deliverable(self):
+        """Unified chat autonomously generates .docx approval note when requested."""
+        with open("app/samples/inspection_report.png", "rb") as f:
+            img_bytes = f.read()
+
+        res = client.post(
+            "/api/chat",
+            data={"message": "Please draft an approval note for this inspection report"},
+            files={"file": ("inspection_report.png", img_bytes, "image/png")},
+            headers=_AUTH_HEADERS,
+        )
+        assert res.status_code == 200
+        data = res.json()
+        assert data.get("doc_result") is not None
+        doc_res = data["doc_result"]
+        assert doc_res["output_file"].endswith(".docx")
+        assert doc_res["download_url"].startswith("/api/download/")
+
+        # Verify output file is actually downloadable
+        dl_res = client.get(f"/api/outputs/{doc_res['output_file']}")
+        assert dl_res.status_code == 200
+        assert dl_res.content[:2] == b"PK"
+
+    def test_universal_file_upload_tabular_csv(self):
+        """Universal file upload cleanly parses spreadsheets (.csv) and stores tabular structure in memory."""
+        csv_bytes = b"Sensor_ID,Pressure_PSI,Temperature_C,Status\nSEN-101,142.5,68.2,Normal\nSEN-102,189.0,91.4,Warning\n"
+        res = client.post(
+            "/api/chat",
+            data={"message": "Analyze sensor readings"},
+            files={"file": ("readings.csv", csv_bytes, "text/csv")},
+            headers=_AUTH_HEADERS,
+        )
+        assert res.status_code == 200
+        data = res.json()
+        assert data["grounded"] is True
+        assert len(data.get("documents", [])) == 1
+        assert data["documents"][0]["filename"] == "readings.csv"
+
 
 

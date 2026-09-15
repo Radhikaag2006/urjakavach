@@ -161,6 +161,18 @@ def submit_code_task(prompt: str = Form(...)):
     result = orchestrator.run_code_flow(prompt)
     return JSONResponse(result)
 
+@app.post("/api/sandbox/execute")
+def execute_code_in_sandbox(
+    code: str = Form(...),
+    user_id: str = Depends(get_current_user),
+):
+    """Execute code snippet directly in isolated sandbox and return stdout/stderr."""
+    from .tools.sandbox_tool import run_in_sandbox
+    if not code.strip():
+        raise HTTPException(status_code=400, detail="Code cannot be empty")
+    res = run_in_sandbox(code)
+    return JSONResponse(res)
+
 @app.post("/api/chat")
 def submit_chat_message(
     session_id: str | None = Form(None),

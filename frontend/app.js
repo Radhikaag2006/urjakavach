@@ -283,6 +283,211 @@ function clearChatAttachment() {
   clearChatAttachments();
 }
 
+function getFileIcon(filename) {
+  const ext = (filename || "").split('.').pop().toLowerCase();
+  if (["png", "jpg", "jpeg", "webp", "bmp", "tiff", "gif", "svg"].includes(ext)) return "&#128444;";
+  if (["py", "cpp", "c", "h", "hpp", "java", "js", "ts", "sh", "sql", "html", "css"].includes(ext)) return "&#128187;";
+  if (["csv", "tsv", "xlsx", "xls"].includes(ext)) return "&#128202;";
+  if (["pdf", "docx", "doc", "txt", "md", "json", "xml", "log"].includes(ext)) return "&#128196;";
+  return "&#128206;";
+}
+
+const snippetStore = {};
+
+function copySnippet(id, btn) {
+  const code = snippetStore[id] || "";
+  if (!code) return;
+  navigator.clipboard.writeText(code).then(() => {
+    const old = btn.textContent;
+    btn.textContent = "✓ Copied!";
+    btn.classList.add("btn-copied");
+    setTimeout(() => {
+      btn.textContent = old;
+      btn.classList.remove("btn-copied");
+    }, 2000);
+  });
+}
+
+function downloadSnippet(id, filename) {
+  const code = snippetStore[id] || "";
+  if (!code) return;
+  const blob = new Blob([code], { type: "text/plain;charset=utf-8" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = filename || "solution.py";
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+async function runSnippetInSandbox(id, terminalId) {
+  const code = snippetStore[id] || "";
+  const terminal = document.getElementById(terminalId);
+  if (!terminal || !code) return;
+
+  terminal.classList.remove("panel-hidden");
+  terminal.innerHTML = '<div class="cmd-line">$ python -u task.py</div><div style="color:var(--text-dim);">&#9684; Executing code in isolated sandbox...</div>';
+
+  try {
+    const form = new FormData();
+    form.append("code", code);
+    const res = await fetch(API + "/api/sandbox/execute", {
+      method: "POST",
+      body: form,
+      headers: getAuthHeaders(),
+    });
+    if (!res.ok) throw new Error("Sandbox execution request failed");
+    const data = await res.json();
+    const isOk = data.ok;
+    const output = data.stdout || (data.stderr ? "Stderr:\n" + data.stderr : "(No stdout returned)");
+    terminal.innerHTML = `
+      <div class="cmd-line">$ python -u task.py <span style="float:right;font-size:10.5px;color:${isOk ? '#4ade80' : '#f87171'}">${isOk ? '✓ Exit 0' : '✗ Failed'}</span></div>
+      <div>${escapeHtml(output)}</div>
+    `;
+  } catch (err) {
+    terminal.innerHTML = `<div class="cmd-line">$ python -u task.py</div><div style="color:#f87171;">Error: ${escapeHtml(err.message)}</div>`;
+  }
+}
+
+function copyMessageText(msgId, btn) {
+  const text = snippetStore[msgId] || "";
+  if (!text) return;
+  navigator.clipboard.writeText(text).then(() => {
+    const old = btn.textContent;
+    btn.textContent = "✓ Copied Text!";
+    btn.classList.add("btn-copied");
+    setTimeout(() => {
+      btn.textContent = old;
+      btn.classList.remove("btn-copied");
+    }, 2000);
+  });
+}
+
+function exportMessageMarkdown(msgId) {
+  const text = snippetStore[msgId] || "";
+  if (!text) return;
+  const blob = new Blob([text], { type: "text/markdown;charset=utf-8" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `UrjaKavach_Deliverable_${Date.now().toString().slice(-4)}.md`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function formatDeliverableMarkdown(text, msgId) {
+  if (!text) return "";
+  snippetStore[msgId] = text;
+
+  // Extract and format code blocks ```lang ... ```
+  let codeIdx = 0;
+  const withCode = text.replace(/```(\w+)?\s*\n([\s\S]*?)```/g, (match, lang, code) => {
+    const sId = `${msgId}_code_${codeIdx++}`;
+    snippetStore[sId] = code.trim();
+    const language = (lang || "python").toLowerCase();
+    const isPy = ["python", "py"].includes(language);
+    const terminalId = `term_${sId}`;
+
+    return `
+      <div class="chat-sandbox-box">
+        <div class="chat-sandbox-header">
+          <div class="chat-sandbox-title">&#9889; ${escapeHtml((lang || 'CODE').toUpperCase())} DELIVERABLE</div>
+          <div style="display:flex;gap:6px;align-items:center;">
+            <button class="deliverable-btn" onclick="copySnippet('${sId}', this)">&#128203; Copy</button>
+            <button class="deliverable-btn" onclick="downloadSnippet('${sId}', 'solution.${isPy ? 'py' : 'txt'}')">&#128190; .${isPy ? 'py' : 'txt'}</button>
+            ${isPy ? `<button class="deliverable-btn deliverable-btn-primary" onclick="runSnippetInSandbox('${sId}', '${terminalId}')">&#9654; Run in Sandbox</button>` : ''}
+          </div>
+        </div>
+        <pre class="chat-sandbox-code"><code>${escapeHtml(code.trim())}</code></pre>
+        <div id="${terminalId}" class="chat-sandbox-terminal panel-hidden"></div>
+      </div>
+    `;
+  });
+
+  // Markdown headers, bold, italics, lists, inline code
+  let html = withCode
+    .replace(/^### (.*$)/gim, '<h4>$1</h4>')
+    .replace(/^## (.*$)/gim, '<h3>$1</h3>')
+    .replace(/^# (.*$)/gim, '<h2>$1</h2>')
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.*?)\*/g, '<em>$1</em>')
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/^\s*[-*•]\s+(.*$)/gim, '<li>$1</li>')
+    .replace(/^\s*\d+\.\s+(.*$)/gim, '<li>$1</li>');
+
+  html = html.replace(/((?:<li>.*<\/li>\s*)+)/g, '<ul>$1</ul>');
+
+  const parts = html.split(/(<div class="chat-sandbox-box">[\s\S]*?<\/div>\s*<\/div>)/g);
+  return parts.map((part, i) => {
+    if (i % 2 === 1) return part;
+    return part.split(/\n\n+/).map(p => p.trim() ? `<p>${p.replace(/\n/g, '<br>')}</p>` : '').join('');
+  }).join('');
+}
+
+function renderDeliverablesHtml(codeResult, docResult, msgId, findings) {
+  let html = "";
+
+  // 1. Text Deliverable: Extracted Highlights from Documents
+  if (findings && findings.length > 0) {
+    html += `
+      <div class="deliverable-highlights">
+        <div class="deliverable-highlights-title">&#128269; Key Extracted Highlights &amp; Findings</div>
+        <ul>${findings.map(f => `<li>${escapeHtml(f)}</li>`).join("")}</ul>
+      </div>
+    `;
+  }
+
+  // 2. Code Deliverable: Autonomous Code Generation & Execution
+  if (codeResult && (codeResult.code || codeResult.stdout)) {
+    const sId = `${msgId}_auto_code`;
+    snippetStore[sId] = codeResult.code || "";
+    const isOk = codeResult.ok;
+    const statusPill = isOk
+      ? '<span class="tag tag-ok">&#10003; Sandbox Verified (exit 0)</span>'
+      : '<span class="tag" style="color:var(--red,#f87171);">&#10007; Sandbox Failed</span>';
+    const sourceTag = codeResult.source === "model" ? '<span class="tag">Qwen2.5-Coder</span>' : '<span class="tag">code-stub</span>';
+    const terminalId = `term_${sId}`;
+
+    html += `
+      <div class="chat-sandbox-box">
+        <div class="chat-sandbox-header">
+          <div class="chat-sandbox-title">&#9889; Autonomous Code Deliverable</div>
+          <div style="display:flex;gap:6px;align-items:center;">
+            ${sourceTag} ${statusPill}
+            <button class="deliverable-btn" onclick="copySnippet('${sId}', this)">&#128203; Copy</button>
+            <button class="deliverable-btn" onclick="downloadSnippet('${sId}', 'solution.py')">&#128190; .py</button>
+            <button class="deliverable-btn deliverable-btn-primary" onclick="runSnippetInSandbox('${sId}', '${terminalId}')">&#9654; Re-run</button>
+          </div>
+        </div>
+        ${codeResult.code ? `<pre class="chat-sandbox-code"><code>${escapeHtml(codeResult.code)}</code></pre>` : ""}
+        <div id="${terminalId}" class="chat-sandbox-terminal">
+          <div class="cmd-line">$ python -u task.py</div>
+          <div>${escapeHtml(codeResult.stdout || (codeResult.stderr ? "Stderr: " + codeResult.stderr : "(No stdout captured)"))}</div>
+        </div>
+      </div>
+    `;
+  }
+
+  // 3. Document Deliverable: Word .docx
+  if (docResult && (docResult.output_file || docResult.download_url)) {
+    const docName = docResult.output_file || "Approval_Note.docx";
+    const dlUrl = docResult.download_url || `/api/download/${docName}`;
+    html += `
+      <div class="chat-deliverable-card">
+        <div class="chat-deliverable-info">
+          <span class="chat-deliverable-icon">&#128196;</span>
+          <div>
+            <div><strong>${escapeHtml(docName)}</strong></div>
+            <div style="font-size:11px;color:var(--text-dim);">Generated on-premise deliverable ready for sign-off</div>
+          </div>
+        </div>
+        <a class="chat-deliverable-btn" href="${escapeHtml(dlUrl)}" download="${escapeHtml(docName)}">
+          &#11015; Download .docx
+        </a>
+      </div>
+    `;
+  }
+  return html;
+}
+
 function renderAttachPreview() {
   const prev = document.getElementById("attachPreview");
   if (!chatAttachments.length) {
@@ -293,10 +498,23 @@ function renderAttachPreview() {
   prev.classList.remove("panel-hidden");
   prev.innerHTML = chatAttachments.map((file, idx) =>
     `<div class="attach-chip" title="${escapeHtml(file.name)}">` +
-      `<span>&#128206; ${escapeHtml(file.name)}</span>` +
+      `<span>${getFileIcon(file.name)} ${escapeHtml(file.name)}</span>` +
       `<button type="button" onclick="removeChatAttachment(${idx})" title="Remove attachment">&times;</button>` +
     `</div>`
   ).join("");
+}
+
+function renderDeliverableActionsToolbar(msgId) {
+  return `
+    <div class="deliverable-actions">
+      <button class="deliverable-btn" onclick="copyMessageText('${msgId}', this)" title="Copy deliverable text to clipboard">
+        &#128203; Copy Deliverable Text
+      </button>
+      <button class="deliverable-btn" onclick="exportMessageMarkdown('${msgId}')" title="Export deliverable as markdown (.md) file">
+        &#128229; Export .md
+      </button>
+    </div>
+  `;
 }
 
 async function sendChatMessage() {
@@ -311,7 +529,7 @@ async function sendChatMessage() {
   let userBubbleHtml = "";
   if (filesToSend.length > 0) {
     userBubbleHtml += '<div class="msg-attachments">' +
-      filesToSend.map(f => '<div class="msg-attachment">&#128196; ' + escapeHtml(f.name) + '</div>').join("") +
+      filesToSend.map(f => '<div class="msg-attachment">' + getFileIcon(f.name) + ' ' + escapeHtml(f.name) + '</div>').join("") +
       '</div>';
   }
   if (message) {
@@ -348,8 +566,15 @@ async function sendChatMessage() {
     const groundedTag = data.grounded
       ? '<span class="tag tag-ok">grounded</span>' : "";
 
+    const msgId = data.message_id || `msg_${Date.now()}`;
+    const formattedText = formatDeliverableMarkdown(data.reply, msgId);
+    const deliverablesHtml = renderDeliverablesHtml(data.code_result, data.doc_result, msgId, data.findings);
+    const actionsToolbar = renderDeliverableActionsToolbar(msgId);
+
     thinking.querySelector(".msg-body").innerHTML =
-      '<div class="msg-text">' + escapeHtml(data.reply) + "</div>" +
+      '<div class="msg-text">' + formattedText + "</div>" +
+      deliverablesHtml +
+      actionsToolbar +
       '<div class="msg-tags">' + sourceTag + groundedTag + "</div>";
 
     await refreshLogs();
@@ -369,15 +594,26 @@ async function sendChatMessage() {
 /* ---------------------------------------------------------------- */
 /* Session history                                                   */
 /* ---------------------------------------------------------------- */
+function quickPrompt(text) {
+  const input = document.getElementById("chatInput");
+  input.value = text;
+  input.focus();
+  autoResize(input);
+}
+
 function startNewChat() {
   currentSessionId = null;
   clearChatAttachments();
   document.getElementById("chatTitle").textContent = "New chat";
   document.getElementById("chatMessages").innerHTML =
-    '<div class="empty-state" id="emptyState"><h2>UrjaKavach</h2>' +
-    "<p>Sovereign on-premise AI workbench for MRPL. Ask a question, upload a " +
-    "document or image, or run a demo flow from the sidebar. Nothing leaves " +
-    "this machine.</p></div>";
+    '<div class="empty-state" id="emptyState">' +
+    '<h2>UrjaKavach Sovereign AI</h2>' +
+    '<p>Unified on-premise workbench. Chat, attach any document or code, or execute scripts in an isolated sandbox.</p>' +
+    '<div class="prompt-chips">' +
+    '<button class="chip" onclick="quickPrompt(\'Summarize the attached document and extract key highlights.\')">&#128196; Summarize document</button>' +
+    '<button class="chip" onclick="quickPrompt(\'Write a python script to calculate the moving average of pipeline pressure readings.\')">&#9889; Write &amp; run Python script</button>' +
+    '<button class="chip" onclick="quickPrompt(\'Please draft an official approval note from the attached inspection data.\')">&#128221; Draft approval note (.docx)</button>' +
+    '</div></div>';
   document.querySelectorAll(".history-item").forEach(el => el.classList.remove("active"));
 }
 
@@ -457,18 +693,29 @@ async function openSession(sessionId) {
       const docList = (m.documents && m.documents.length) ? m.documents : (m.document && m.document.filename ? [m.document] : []);
       if (docList.length > 0) {
         bubbleHtml += '<div class="msg-attachments">' +
-          docList.map(d => '<div class="msg-attachment">&#128196; ' + escapeHtml(d.filename) + '</div>').join("") +
+          docList.map(d => '<div class="msg-attachment">' + getFileIcon(d.filename) + ' ' + escapeHtml(d.filename) + '</div>').join("") +
           '</div>';
       }
-      bubbleHtml += '<div class="msg-text">' + escapeHtml(m.prompt || m.content) + '</div>';
-      if (m.role === "assistant" && (m.source || m.grounded)) {
+      const msgId = m.message_id || `msg_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
+      const isAssistant = m.role === "assistant";
+      let contentHtml = "";
+      if (isAssistant) {
+        contentHtml = formatDeliverableMarkdown(m.content || "", msgId);
+      } else {
+        contentHtml = escapeHtml(m.prompt || m.content || "");
+      }
+      const deliverablesHtml = renderDeliverablesHtml(m.code_result, m.doc_result, msgId, m.findings);
+      const actionsToolbar = isAssistant ? renderDeliverableActionsToolbar(msgId) : "";
+
+      bubbleHtml += '<div class="msg-text">' + contentHtml + '</div>' + deliverablesHtml + actionsToolbar;
+      if (isAssistant && (m.source || m.grounded)) {
         const sourceTag = m.source === "model"
           ? '<span class="tag tag-ok">local model</span>'
           : '<span class="tag">stub mode</span>';
         const groundedTag = m.grounded ? '<span class="tag tag-ok">grounded</span>' : '';
         bubbleHtml += '<div class="msg-tags">' + sourceTag + groundedTag + '</div>';
       }
-      addMessageBubble(m.role === "user" ? "user" : "assistant", bubbleHtml);
+      addMessageBubble(isAssistant ? "assistant" : "user", bubbleHtml);
     });
 
     document.querySelectorAll(".history-item").forEach(el => el.classList.remove("active"));

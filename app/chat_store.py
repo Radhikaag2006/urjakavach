@@ -128,16 +128,10 @@ def append_message(
     documents: list[dict] | None = None,
     source: str | None = None,
     grounded: bool = False,
+    code_result: dict | None = None,
+    doc_result: dict | None = None,
 ) -> str:
-    """Append a message to the session.
-    
-    A message can contain:
-    - prompt (user's prompt text)
-    - document / documents (single or multiple attached documents)
-    - both prompt and documents
-    
-    Returns the generated message_id.
-    """
+    """Append a message to the session with optional code and document deliverables."""
     data = load(session_id)
     if not data:
         return ""
@@ -155,6 +149,8 @@ def append_message(
         "documents": doc_list,
         "source": source,
         "grounded": grounded,
+        "code_result": code_result,
+        "doc_result": doc_result,
         "timestamp": int(time.time()),
     }
     data["messages"].append(msg)

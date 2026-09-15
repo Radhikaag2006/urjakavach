@@ -315,6 +315,92 @@ def run_chat_flow(
             {"doc_count": len(all_session_docs)},
         )
 
+    all_findings = [f for d in all_session_docs for f in d.get("findings", [])] or (doc_context.get("findings", []) if doc_context else [])
+    msg_lower = (message or "").lower()
+
+    # Autonomous Subtask 1: Code Generation and Sandbox Execution
+    code_deliverable = None
+    coding_triggers = [
+        "write code", "generate code", "python script", "code for", "implement",
+        "calculate", "run code", "execute code", "run in sandbox", "sandbox",
+        "algorithm", "average", "prime", "sort", "simulation", "compute",
+        "write a script", "write python", "function", "program", "code"
+    ]
+    has_code_attachment = any(
+        (att.get("name") or "").lower().endswith(ext)
+        for att in effective_attachments
+        for ext in [".py", ".cpp", ".c", ".h", ".java", ".js", ".ts", ".sh", ".sql"]
+    )
+    should_run_code = any(k in msg_lower for k in coding_triggers) or (
+        has_code_attachment and any(w in msg_lower for w in ["run", "execute", "test", "output", "verify", "debug", "solve", "compile", "calculate"])
+    )
+
+    if should_run_code:
+        log_step(
+            task_id, "route",
+            f"Autonomous subtask routed to {model_router.model_name_for('code')}",
+        )
+        code_prompt = message
+        if combined_attached_text and not any(k in msg_lower for k in ["average", "prime"]):
+            code_prompt = f"{message}\n\nContext Reference:\n{combined_attached_text[:1200]}"
+
+        code_flow_res = run_code_flow(code_prompt)
+        c_code = code_flow_res.get("code", "")
+        c_res = code_flow_res.get("result", {})
+        c_src = code_flow_res.get("source", "stub")
+        code_deliverable = {
+            "code": c_code,
+            "stdout": c_res.get("stdout", ""),
+            "stderr": c_res.get("stderr", ""),
+            "ok": c_res.get("ok", False),
+            "returncode": c_res.get("returncode", 0),
+            "source": c_src,
+            "filename": "solution.py",
+        }
+        status_str = "Execution Succeeded (exit code 0)" if code_deliverable["ok"] else f"Execution Failed (exit code {code_deliverable['returncode']})"
+        combined_attached_text += (
+            f"\n\n### [AUTONOMOUS CODE SUBTASK RESULT]\n"
+            f"Generated Python Code:\n```python\n{c_code}\n```\n"
+            f"Execution Status: {status_str}\n"
+            f"Sandbox Stdout:\n{code_deliverable['stdout']}\n"
+        )
+
+    # Autonomous Subtask 2: Document / Approval Note Deliverable Drafting
+    doc_deliverable = None
+    doc_triggers = [
+        "approval note", "draft note", "generate document", "create docx",
+        "formal report", "formal note", "deliverable", "export to word",
+        "generate approval", "draft report", "create deliverable"
+    ]
+    should_draft_doc = any(k in msg_lower for k in doc_triggers)
+    if should_draft_doc:
+        log_step(
+            task_id, "tool:file_write",
+            "Autonomous deliverable generation: drafting approval note (.docx)",
+        )
+        source_doc_name = (
+            effective_attachments[0].get("name")
+            if effective_attachments
+            else (all_session_docs[0].get("source_name") if all_session_docs else "Technical_Report.docx")
+        )
+        if not all_findings and combined_attached_text:
+            extracted_f, _ = model_router.summarize_findings(combined_attached_text)
+            all_findings.extend(extracted_f)
+
+        doc_path = draft_approval_note(source_doc_name, all_findings, task_id)
+        doc_filename = os.path.basename(doc_path)
+        doc_deliverable = {
+            "output_file": doc_filename,
+            "document_path": doc_path,
+            "download_url": f"/api/download/{doc_filename}",
+            "findings": all_findings,
+        }
+        combined_attached_text += (
+            f"\n\n### [GENERATED DELIVERABLE]\n"
+            f"An official Approval Note document was drafted: '{doc_filename}'. "
+            f"Download available at: {doc_deliverable['download_url']}\n"
+        )
+
     log_step(
         task_id, "route",
         f"Routed chat subtask to {model_router.model_name_for('reasoning')}",
@@ -338,16 +424,23 @@ def run_chat_flow(
         "Generated chat reply", {"source": source},
     )
 
-    # Record Assistant Message with unique message_id
+    # Record Assistant Message with unique message_id and deliverables
     assistant_msg_id = chat_store.append_message(
         session_id,
         role="assistant",
         content=reply,
         source=source,
         grounded=bool(combined_kb_context or all_session_docs),
+        code_result=code_deliverable,
+        doc_result=doc_deliverable,
     )
 
-    all_findings = [f for d in all_session_docs for f in d.get("findings", [])] or (doc_context.get("findings", []) if doc_context else [])
+    text_deliverable = {
+        "title": "Analysis & Findings" if all_findings else "Technical Response",
+        "content": reply,
+        "findings": all_findings,
+        "grounded": bool(combined_kb_context or all_session_docs),
+    }
 
     return {
         "task_id": task_id,
@@ -361,4 +454,7 @@ def run_chat_flow(
         "document": doc_payload,
         "documents": new_docs_payload,
         "all_documents": all_session_docs,
+        "code_result": code_deliverable,
+        "doc_result": doc_deliverable,
+        "text_deliverable": text_deliverable,
     }

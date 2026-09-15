@@ -83,10 +83,13 @@
 
     <div class="chat-messages" id="chatMessages">
       <div class="empty-state" id="emptyState">
-        <h2>UrjaKavach</h2>
-        <p>Sovereign on-premise AI workbench for MRPL. Ask a question, upload a
-        document or image, or run a demo flow from the sidebar. Nothing leaves
-        this machine.</p>
+        <h2>UrjaKavach Sovereign AI</h2>
+        <p>Unified on-premise workbench. Chat, attach any document or code, or execute scripts in an isolated sandbox.</p>
+        <div class="prompt-chips">
+          <button class="chip" onclick="quickPrompt('Summarize the attached document and extract key highlights.')">&#128196; Summarize document</button>
+          <button class="chip" onclick="quickPrompt('Write a python script to calculate the moving average of pipeline pressure readings.')">&#9889; Write &amp; run Python script</button>
+          <button class="chip" onclick="quickPrompt('Please draft an official approval note from the attached inspection data.')">&#128221; Draft approval note (.docx)</button>
+        </div>
       </div>
     </div>
 
@@ -95,7 +98,7 @@
       <div class="input-row">
         <button class="attach-btn" title="Attach file(s)"
                 onclick="document.getElementById('chatFileInput').click()">&#128206;</button>
-        <input type="file" id="chatFileInput" multiple accept="image/*,.pdf,.docx,.doc,.txt,.csv,.py,.cpp,.c,.json,.md,.log" onchange="onChatFileChosen(event)">
+        <input type="file" id="chatFileInput" multiple accept="*/*" onchange="onChatFileChosen(event)">
         <textarea id="chatInput" rows="1"
                   placeholder="Ask anything, or describe a coding/document task…"
                   onkeydown="onChatInputKeydown(event)"
