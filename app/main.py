@@ -267,6 +267,7 @@ def get_logs():
 
 
 @app.get("/api/outputs/{filename}")
+@app.get("/api/download/{filename}")
 def get_output(filename: str):
     # Prevent path traversal — filename must be a bare name
     if os.path.basename(filename) != filename:

@@ -466,21 +466,44 @@ function renderDeliverablesHtml(codeResult, docResult, msgId, findings) {
     `;
   }
 
-  // 3. Document Deliverable: Word .docx
+  // 3. Document / Presentation / Spreadsheet Deliverable
   if (docResult && (docResult.output_file || docResult.download_url)) {
-    const docName = docResult.output_file || "Approval_Note.docx";
+    const docName = docResult.output_file || "Deliverable";
     const dlUrl = docResult.download_url || `/api/download/${docName}`;
+    const fileType = (docResult.file_type || (docName.split('.').pop()) || 'doc').toLowerCase();
+    let typeLabel = "Generated on-premise deliverable ready for sign-off";
+    let icon = "&#128196;";
+    let btnText = "Download";
+
+    if (fileType === "pptx") {
+      typeLabel = "PowerPoint Presentation Slide Deck ready for briefing";
+      icon = "&#128202;";
+      btnText = "Download .pptx";
+    } else if (fileType === "xlsx") {
+      typeLabel = "Structured Excel Spreadsheet with styled tables";
+      icon = "&#128200;";
+      btnText = "Download .xlsx";
+    } else if (fileType === "csv") {
+      typeLabel = "Raw Tabular Dataset for data science & analytics";
+      icon = "&#128203;";
+      btnText = "Download .csv";
+    } else {
+      typeLabel = "Official Word Document (.docx) formatted for formal review";
+      icon = "&#128196;";
+      btnText = "Download .docx";
+    }
+
     html += `
       <div class="chat-deliverable-card">
         <div class="chat-deliverable-info">
-          <span class="chat-deliverable-icon">&#128196;</span>
+          <span class="chat-deliverable-icon">${icon}</span>
           <div>
             <div><strong>${escapeHtml(docName)}</strong></div>
-            <div style="font-size:11px;color:var(--text-dim);">Generated on-premise deliverable ready for sign-off</div>
+            <div style="font-size:11px;color:var(--text-dim);">${escapeHtml(typeLabel)}</div>
           </div>
         </div>
         <a class="chat-deliverable-btn" href="${escapeHtml(dlUrl)}" download="${escapeHtml(docName)}">
-          &#11015; Download .docx
+          &#11015; ${escapeHtml(btnText)}
         </a>
       </div>
     `;
@@ -612,7 +635,10 @@ function startNewChat() {
     '<div class="prompt-chips">' +
     '<button class="chip" onclick="quickPrompt(\'Summarize the attached document and extract key highlights.\')">&#128196; Summarize document</button>' +
     '<button class="chip" onclick="quickPrompt(\'Write a python script to calculate the moving average of pipeline pressure readings.\')">&#9889; Write &amp; run Python script</button>' +
-    '<button class="chip" onclick="quickPrompt(\'Please draft an official approval note from the attached inspection data.\')">&#128221; Draft approval note (.docx)</button>' +
+    '<button class="chip" onclick="quickPrompt(\'Please generate a PowerPoint presentation (.pptx) summarizing the key findings.\')">&#128202; Generate PowerPoint (.pptx)</button>' +
+    '<button class="chip" onclick="quickPrompt(\'Please structure these findings into an Excel spreadsheet (.xlsx) with status columns.\')">&#128200; Export Excel sheet (.xlsx)</button>' +
+    '<button class="chip" onclick="quickPrompt(\'Export this data table as a CSV dataset (.csv).\')">&#128203; Export CSV (.csv)</button>' +
+    '<button class="chip" onclick="quickPrompt(\'Please draft an official approval note (.docx) from the attached inspection data.\')">&#128221; Draft approval note (.docx)</button>' +
     '</div></div>';
   document.querySelectorAll(".history-item").forEach(el => el.classList.remove("active"));
 }

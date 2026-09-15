@@ -23,6 +23,7 @@ from .tools.ocr_tool import ocr_image
 from .tools.doc_extractor import extract_file_content
 from .tools.sandbox_tool import run_in_sandbox
 from .tools.docgen_tool import draft_approval_note
+from .tools.deliverable_builder import generate_presentation, generate_spreadsheet, parse_tabular_data
 from .tools.kb_tool import retrieve_context
 from . import chat_store
 
@@ -365,39 +366,86 @@ def run_chat_flow(
             f"Sandbox Stdout:\n{code_deliverable['stdout']}\n"
         )
 
-    # Autonomous Subtask 2: Document / Approval Note Deliverable Drafting
+    # Autonomous Subtask 2: Multi-Format Deliverable Generation (PPT, Excel, CSV, Word)
     doc_deliverable = None
-    doc_triggers = [
+    ppt_triggers = ["ppt", "pptx", "presentation", "slide", "powerpoint", "deck"]
+    excel_triggers = ["excel", "xlsx", "spreadsheet", "sheet", "tabular excel"]
+    csv_triggers = ["csv", "comma separated", "export csv", "save as csv"]
+    docx_triggers = [
         "approval note", "draft note", "generate document", "create docx",
         "formal report", "formal note", "deliverable", "export to word",
-        "generate approval", "draft report", "create deliverable"
+        "generate approval", "draft report", "create deliverable", "word doc"
     ]
-    should_draft_doc = any(k in msg_lower for k in doc_triggers)
-    if should_draft_doc:
-        log_step(
-            task_id, "tool:file_write",
-            "Autonomous deliverable generation: drafting approval note (.docx)",
-        )
+
+    should_ppt = any(k in msg_lower for k in ppt_triggers)
+    should_excel = any(k in msg_lower for k in excel_triggers)
+    should_csv = any(k in msg_lower for k in csv_triggers)
+    should_docx = any(k in msg_lower for k in docx_triggers) or (
+        not (should_ppt or should_excel or should_csv) and any(k in msg_lower for k in ["report", "deliverable"])
+    )
+
+    if should_ppt or should_excel or should_csv or should_docx:
         source_doc_name = (
             effective_attachments[0].get("name")
             if effective_attachments
-            else (all_session_docs[0].get("source_name") if all_session_docs else "Technical_Report.docx")
+            else (all_session_docs[0].get("source_name") if all_session_docs else "Technical_Report")
         )
         if not all_findings and combined_attached_text:
             extracted_f, _ = model_router.summarize_findings(combined_attached_text)
             all_findings.extend(extracted_f)
 
-        doc_path = draft_approval_note(source_doc_name, all_findings, task_id)
-        doc_filename = os.path.basename(doc_path)
-        doc_deliverable = {
-            "output_file": doc_filename,
-            "document_path": doc_path,
-            "download_url": f"/api/download/{doc_filename}",
-            "findings": all_findings,
-        }
+        if should_ppt:
+            log_step(
+                task_id, "tool:file_write",
+                "Autonomous deliverable generation: building PowerPoint slide deck (.pptx)",
+            )
+            doc_filename = generate_presentation(
+                title=f"Analysis: {source_doc_name}",
+                subtitle="UrjaKavach Sovereign On-Premise AI Briefing",
+                findings=all_findings,
+                task_id=task_id,
+                raw_context=combined_attached_text,
+            )
+            doc_deliverable = {
+                "output_file": doc_filename,
+                "document_path": os.path.join(config.OUTPUTS_DIR, doc_filename),
+                "download_url": f"/api/download/{doc_filename}",
+                "file_type": "pptx",
+                "findings": all_findings,
+            }
+        elif should_excel or should_csv:
+            fmt = "csv" if (should_csv and not should_excel) else "xlsx"
+            log_step(
+                task_id, "tool:file_write",
+                f"Autonomous deliverable generation: structuring tabular dataset (.{fmt})",
+            )
+            tbl_title, tbl_headers, tbl_rows = parse_tabular_data(combined_attached_text, findings=all_findings)
+            doc_filename = generate_spreadsheet(tbl_title, tbl_headers, tbl_rows, task_id=task_id, fmt=fmt)
+            doc_deliverable = {
+                "output_file": doc_filename,
+                "document_path": os.path.join(config.OUTPUTS_DIR, doc_filename),
+                "download_url": f"/api/download/{doc_filename}",
+                "file_type": fmt,
+                "findings": all_findings,
+            }
+        else:
+            log_step(
+                task_id, "tool:file_write",
+                "Autonomous deliverable generation: drafting approval note (.docx)",
+            )
+            doc_path = draft_approval_note(source_doc_name, all_findings, task_id)
+            doc_filename = os.path.basename(doc_path)
+            doc_deliverable = {
+                "output_file": doc_filename,
+                "document_path": doc_path,
+                "download_url": f"/api/download/{doc_filename}",
+                "file_type": "docx",
+                "findings": all_findings,
+            }
+
         combined_attached_text += (
             f"\n\n### [GENERATED DELIVERABLE]\n"
-            f"An official Approval Note document was drafted: '{doc_filename}'. "
+            f"An official {doc_deliverable.get('file_type', 'document').upper()} deliverable was generated: '{doc_filename}'. "
             f"Download available at: {doc_deliverable['download_url']}\n"
         )
 
