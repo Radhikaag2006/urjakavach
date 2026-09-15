@@ -93,9 +93,9 @@
     <div class="chat-input-area">
       <div class="attach-preview panel-hidden" id="attachPreview"></div>
       <div class="input-row">
-        <button class="attach-btn" title="Attach file"
+        <button class="attach-btn" title="Attach file(s)"
                 onclick="document.getElementById('chatFileInput').click()">&#128206;</button>
-        <input type="file" id="chatFileInput" onchange="onChatFileChosen(event)">
+        <input type="file" id="chatFileInput" multiple accept="image/*,.pdf,.docx,.doc,.txt,.csv,.py,.cpp,.c,.json,.md,.log" onchange="onChatFileChosen(event)">
         <textarea id="chatInput" rows="1"
                   placeholder="Ask anything, or describe a coding/document task…"
                   onkeydown="onChatInputKeydown(event)"

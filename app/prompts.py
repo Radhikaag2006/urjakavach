@@ -34,17 +34,16 @@ Domain conventions you must follow:
 # --------------------------------------------------------------------
 # Task-specific prompts
 # --------------------------------------------------------------------
-
-FINDINGS_SYSTEM_PROMPT = ORG_CONTEXT + """
-Your task: read the OCR'd text of a scanned inspection report and extract
-the distinct engineering findings.
+FINDINGS_SYSTEM_PROMPT = """You are an intelligent document analysis and extraction assistant.
+Your task: read the provided text (which may be a scanned document, technical report, code file, academic syllabus, letter, or general note) and extract the distinct key points, observations, or takeaways.
 
 Rules:
-- Output ONE finding per line.
-- No numbering, no bullet characters, no preamble, no closing remarks.
-- Each line must be a single complete finding, preserving equipment tags
-  and numeric values exactly as written in the source.
-- Include the recommendation line if the report contains one.
+- If the document is an industrial/equipment report: extract equipment tags, specific readings, anomalies, and recommendations.
+- If the document is general text (e.g. code, notes, syllabus, letter, article): extract the core highlights, main topics, key requests, or important points.
+- Output ONE concise point per line.
+- No numbering, no bullet characters (do NOT output '-', '*', '1.'), no preamble, no closing remarks.
+- Each line must be a single complete, informative point directly from the text.
+- Never output "no engineering findings" or refuse the text. Always extract the actual highlights of the content.
 - Maximum 8 lines.
 """
 
@@ -69,7 +68,7 @@ def build_findings_prompt(raw_text: str, kb_context: str = "") -> list[dict]:
             "Reference material from the plant's own document library:\n"
             f"{kb_context}\n\n"
         )
-    user_content += f"Inspection report text:\n{raw_text}"
+    user_content += f"Document text:\n{raw_text}"
 
     return [
         {"role": "system", "content": FINDINGS_SYSTEM_PROMPT},
@@ -84,37 +83,72 @@ def build_code_prompt(prompt: str) -> list[dict]:
         {"role": "user", "content": prompt},
     ]
 
+
 def build_chat_prompt(
     history: list[dict],
     kb_context: str = "",
     attached_text: str = "",
+    doc_context: dict | None = None,
+    documents: list[dict] | None = None,
 ) -> list[dict]:
-    """General-purpose chat prompt, grounded on plant docs and/or an
-    attached file when available."""
+    """General-purpose chat prompt, grounded on plant docs and/or
+    attached documents/images across turns.
+    """
     system = (
-        "You are UrjaKavach, a sovereign on-premise assistant for MRPL "
-        "refinery engineers. Answer clearly and concisely. If plant "
-        "reference material or an attached document is provided below, "
-        "ground your answer in it and say so; otherwise answer from "
-        "general knowledge and note that no plant-specific grounding "
-        "was available."
+        "You are UrjaKavach, a sovereign on-premise AI workbench assistant. "
+        "You assist with document understanding, code analysis, technical workflows, and general queries. "
+        "When attached documents, images, or code are provided in the context below, examine them carefully "
+        "and answer the user's questions directly based on their content.\n\n"
+        "Important rules regarding documents:\n"
+        "- A session may contain multiple attached documents uploaded across different conversation turns.\n"
+        "- Different documents may cover completely different topics (for example, a course syllabus, C++ code, a report, or a general note).\n"
+        "- All attached documents are valid and co-exist in this session. Never claim a previous document was an error or mistaken.\n"
+        "- When answering, distinguish between documents clearly and refer to them by their document titles when appropriate."
     )
 
     context_parts = []
     if kb_context:
         context_parts.append(
-            "Relevant plant reference material:\n" + kb_context
+            "Relevant reference material:\n" + kb_context
         )
-    if attached_text:
+
+    # Collect all available documents
+    docs_to_include = []
+    if documents:
+        docs_to_include = list(documents)
+    elif doc_context:
+        docs_to_include = [doc_context]
+
+    if docs_to_include:
+        for idx, doc in enumerate(docs_to_include, start=1):
+            source = doc.get("source_name", f"document_{idx}")
+            findings = doc.get("findings", [])
+            raw = doc.get("raw_text", "")
+            
+            valid_findings = [
+                f for f in findings
+                if "no engineering findings" not in f.lower() and "no significant findings" not in f.lower()
+            ]
+            
+            doc_label = f"Document {idx}: {source}" if len(docs_to_include) > 1 else f"Document: {source}"
+            doc_section = [f"### [ATTACHED {doc_label.upper()}]"]
+            if valid_findings:
+                findings_block = "\n".join(f"- {f}" for f in valid_findings[:6])
+                doc_section.append(f"Key Points / Highlights:\n{findings_block}")
+            if raw.strip():
+                doc_section.append(f"Extracted Content:\n\"\"\"\n{raw[:5000]}\n\"\"\"")
+            context_parts.append("\n\n".join(doc_section))
+    elif attached_text:
         context_parts.append(
-            "Attached document content:\n" + attached_text[:4000]
+            "Attached document content:\n\"\"\"\n" + attached_text[:5000] + "\n\"\"\""
         )
 
     messages = [{"role": "system", "content": system}]
     if context_parts:
         messages.append({
             "role": "system",
-            "content": "\n\n".join(context_parts),
+            "content": "\n\n---\n\n".join(context_parts),
         })
     messages.extend(history)
     return messages
+

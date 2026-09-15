@@ -145,7 +145,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 });
 let uploadedFile = null;      // for the document-flow modal
-let chatAttachment = null;    // for the chat input's attach button
+let chatAttachments = [];     // for the chat input's attach button (supports multiple)
 let currentSessionId = null;
 
 /* ---------------------------------------------------------------- */
@@ -256,43 +256,84 @@ function onChatInputKeydown(evt) {
 /* Chat send/receive                                                 */
 /* ---------------------------------------------------------------- */
 function onChatFileChosen(evt) {
-  const file = evt.target.files[0];
-  if (!file) return;
-  chatAttachment = file;
-  const prev = document.getElementById("attachPreview");
-  prev.classList.remove("panel-hidden");
-  prev.innerHTML =
-    '<span>&#128206; ' + escapeHtml(file.name) + '</span>' +
-    '<button onclick="clearChatAttachment()">&times;</button>';
+  const files = Array.from(evt.target.files || []);
+  if (!files.length) return;
+  for (const f of files) {
+    if (!chatAttachments.some(existing => existing.name === f.name && existing.size === f.size)) {
+      chatAttachments.push(f);
+    }
+  }
+  renderAttachPreview();
+  document.getElementById("chatFileInput").value = "";
 }
 
-function clearChatAttachment() {
-  chatAttachment = null;
+function removeChatAttachment(idx) {
+  chatAttachments.splice(idx, 1);
+  renderAttachPreview();
+}
+
+function clearChatAttachments() {
+  chatAttachments = [];
   document.getElementById("chatFileInput").value = "";
+  renderAttachPreview();
+}
+
+// Backward compatibility alias
+function clearChatAttachment() {
+  clearChatAttachments();
+}
+
+function renderAttachPreview() {
   const prev = document.getElementById("attachPreview");
-  prev.classList.add("panel-hidden");
-  prev.innerHTML = "";
+  if (!chatAttachments.length) {
+    prev.classList.add("panel-hidden");
+    prev.innerHTML = "";
+    return;
+  }
+  prev.classList.remove("panel-hidden");
+  prev.innerHTML = chatAttachments.map((file, idx) =>
+    `<div class="attach-chip" title="${escapeHtml(file.name)}">` +
+      `<span>&#128206; ${escapeHtml(file.name)}</span>` +
+      `<button type="button" onclick="removeChatAttachment(${idx})" title="Remove attachment">&times;</button>` +
+    `</div>`
+  ).join("");
 }
 
 async function sendChatMessage() {
   const input = document.getElementById("chatInput");
   const message = input.value.trim();
-  if (!message) return;
+  if (!message && !chatAttachments.length) return;
 
   const sendBtn = document.getElementById("sendBtn");
   sendBtn.disabled = true;
 
-  addMessageBubble("user", escapeHtml(message));
+  const filesToSend = [...chatAttachments];
+  let userBubbleHtml = "";
+  if (filesToSend.length > 0) {
+    userBubbleHtml += '<div class="msg-attachments">' +
+      filesToSend.map(f => '<div class="msg-attachment">&#128196; ' + escapeHtml(f.name) + '</div>').join("") +
+      '</div>';
+  }
+  if (message) {
+    userBubbleHtml += '<div class="msg-text">' + escapeHtml(message) + '</div>';
+  } else {
+    userBubbleHtml += '<div class="msg-text" style="color:var(--text-dim);font-style:italic;">Analyze attached document(s)</div>';
+  }
+
+  addMessageBubble("user", userBubbleHtml);
   input.value = "";
   autoResize(input);
+  clearChatAttachments();
 
   const thinking = addMessageBubble("assistant", '<span class="thinking">thinking&hellip;</span>');
 
   try {
     const form = new FormData();
-    form.append("message", message);
+    form.append("message", message || "Please analyze and summarize the attached document(s).");
     if (currentSessionId) form.append("session_id", currentSessionId);
-    if (chatAttachment) form.append("file", chatAttachment);
+    for (const f of filesToSend) {
+      form.append("files", f);
+    }
 
     const res = await fetch(API + "/api/chat", { method: "POST", body: form, headers: getAuthHeaders() });
     const rawText = await res.text();
@@ -311,11 +352,11 @@ async function sendChatMessage() {
       '<div class="msg-text">' + escapeHtml(data.reply) + "</div>" +
       '<div class="msg-tags">' + sourceTag + groundedTag + "</div>";
 
-    clearChatAttachment();
     await refreshLogs();
     await loadHistory();
+    const titleText = message || (filesToSend.length > 0 ? filesToSend[0].name : "Chat");
     document.getElementById("chatTitle").textContent =
-      message.length > 50 ? message.slice(0, 50) + "…" : message;
+      titleText.length > 50 ? titleText.slice(0, 50) + "…" : titleText;
   } catch (err) {
     console.error(err);
     thinking.querySelector(".msg-body").innerHTML =
@@ -330,14 +371,13 @@ async function sendChatMessage() {
 /* ---------------------------------------------------------------- */
 function startNewChat() {
   currentSessionId = null;
-  chatAttachment = null;
+  clearChatAttachments();
   document.getElementById("chatTitle").textContent = "New chat";
   document.getElementById("chatMessages").innerHTML =
     '<div class="empty-state" id="emptyState"><h2>UrjaKavach</h2>' +
     "<p>Sovereign on-premise AI workbench for MRPL. Ask a question, upload a " +
     "document or image, or run a demo flow from the sidebar. Nothing leaves " +
     "this machine.</p></div>";
-  clearChatAttachment();
   document.querySelectorAll(".history-item").forEach(el => el.classList.remove("active"));
 }
 
@@ -413,10 +453,22 @@ async function openSession(sessionId) {
     const container = document.getElementById("chatMessages");
     container.innerHTML = "";
     data.messages.forEach(m => {
-      addMessageBubble(
-        m.role === "user" ? "user" : "assistant",
-        '<div class="msg-text">' + escapeHtml(m.content) + "</div>"
-      );
+      let bubbleHtml = "";
+      const docList = (m.documents && m.documents.length) ? m.documents : (m.document && m.document.filename ? [m.document] : []);
+      if (docList.length > 0) {
+        bubbleHtml += '<div class="msg-attachments">' +
+          docList.map(d => '<div class="msg-attachment">&#128196; ' + escapeHtml(d.filename) + '</div>').join("") +
+          '</div>';
+      }
+      bubbleHtml += '<div class="msg-text">' + escapeHtml(m.prompt || m.content) + '</div>';
+      if (m.role === "assistant" && (m.source || m.grounded)) {
+        const sourceTag = m.source === "model"
+          ? '<span class="tag tag-ok">local model</span>'
+          : '<span class="tag">stub mode</span>';
+        const groundedTag = m.grounded ? '<span class="tag tag-ok">grounded</span>' : '';
+        bubbleHtml += '<div class="msg-tags">' + sourceTag + groundedTag + '</div>';
+      }
+      addMessageBubble(m.role === "user" ? "user" : "assistant", bubbleHtml);
     });
 
     document.querySelectorAll(".history-item").forEach(el => el.classList.remove("active"));
@@ -470,7 +522,7 @@ async function runDocFlow() {
     if (currentSessionId) form.append("session_id", currentSessionId);
     if (!useSample && uploadedFile) form.append("file", uploadedFile);
 
-    res = await fetch(API + "/api/tasks/document", { method: "POST", body: form });
+    res = await fetch(API + "/api/tasks/document", { method: "POST", body: form, headers: getAuthHeaders() });
     rawText = await res.text();
     if (!res.ok) throw new Error("Server returned an error");
     const data = JSON.parse(rawText);

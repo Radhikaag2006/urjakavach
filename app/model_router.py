@@ -118,10 +118,14 @@ def summarize_findings(raw_text: str, kb_context: str = "") -> tuple[list[str], 
     Returns (findings, source) where source is "model" or "stub" so the
     orchestrator can log honestly which path actually ran."""
     if config.USE_REAL_MODEL:
-        messages = prompts.build_findings_prompt(raw_text, kb_context)
-        raw = _call_model("reasoning", messages)
-        findings = _parse_findings(raw)
-        return findings, "model"
+        try:
+            messages = prompts.build_findings_prompt(raw_text, kb_context)
+            raw = _call_model("reasoning", messages)
+            findings = _parse_findings(raw)
+            if findings:
+                return findings, "model"
+        except Exception:  # noqa: BLE001 - any failure -> stub, never a crash
+            pass
 
     return _stub_summarize_findings(raw_text), "stub"
 
@@ -131,10 +135,14 @@ def generate_code(prompt: str) -> tuple[str, str]:
 
     Returns (code, source) where source is "model" or "stub"."""
     if config.USE_REAL_MODEL:
-        messages = prompts.build_code_prompt(prompt)
-        raw = _call_model("code", messages)
-        code = _strip_code_fences(raw)
-        return code, "model"
+        try:
+            messages = prompts.build_code_prompt(prompt)
+            raw = _call_model("code", messages)
+            code = _strip_code_fences(raw)
+            if code.strip():
+                return code, "model"
+        except Exception:  # noqa: BLE001
+            pass
 
     return _stub_generate_code(prompt), "stub"
 
@@ -142,18 +150,33 @@ def chat(
     history: list[dict],
     kb_context: str = "",
     attached_text: str = "",
+    doc_context: dict | None = None,
+    documents: list[dict] | None = None,
 ) -> tuple[str, str]:
-    """General-purpose chat reply, grounded on kb_context/attached_text
-    when present. Returns (reply, source), same pattern as the other
-    task functions."""
+    """General-purpose chat reply, grounded on kb_context/attached_text/doc_context
+    or multiple session documents. Returns (reply, source)."""
     if config.USE_REAL_MODEL:
-        messages = prompts.build_chat_prompt(
-            history, kb_context, attached_text
-        )
-        reply = _call_model("reasoning", messages)
-        return reply, "model"
+        try:
+            messages = prompts.build_chat_prompt(
+                history,
+                kb_context=kb_context,
+                attached_text=attached_text,
+                doc_context=doc_context,
+                documents=documents,
+            )
+            reply = _call_model("reasoning", messages)
+            if reply.strip():
+                return reply, "model"
+        except Exception:  # noqa: BLE001
+            pass
 
-    return _stub_chat_reply(history, attached_text), "stub"
+    return _stub_chat_reply(
+        history,
+        attached_text=attached_text,
+        doc_context=doc_context,
+        documents=documents,
+    ), "stub"
+
 
 # --------------------------------------------------------------------
 # Response parsing
@@ -193,27 +216,27 @@ _FINDING_KEYWORDS = [
 
 
 def _stub_summarize_findings(raw_text: str) -> list[str]:
-    sentences = [s.strip() for s in raw_text.replace("\n", " ").split(".") if s.strip()]
-    findings = [s for s in sentences if any(k in s.lower() for k in _FINDING_KEYWORDS)]
-    if not findings:
-        findings = sentences[:3]
-    return findings[:6]
+    # Split text into non-empty lines and sentences
+    raw_lines = [line.strip() for line in raw_text.splitlines() if line.strip() and len(line.strip()) > 6]
+    sentences = [s.strip() for s in raw_text.replace("\n", " ").split(".") if len(s.strip()) > 8]
 
-def _stub_chat_reply(
-    history: list[dict],
-    attached_text: str,
-) -> str:
-    last_user = next(
-        (m["content"] for m in reversed(history) if m["role"] == "user"),
-        "",
-    )
-    note = " (stub mode — start the real models for a full answer.)"
-    if attached_text:
-        return (
-            "I looked at the attached content along with your "
-            "message: " + last_user + "." + note
-        )
-    return "You said: " + last_user + "." + note
+    # 1. Industrial/equipment keywords
+    findings = [s for s in sentences if any(k in s.lower() for k in _FINDING_KEYWORDS)]
+    if findings:
+        return findings[:6]
+
+    # 2. General document / code / note extraction: take top informative lines or sentences
+    candidates = []
+    for item in raw_lines:
+        clean = re.sub(r"^[-*•\d.)]\s*", "", item)
+        if len(clean) > 8 and not clean.startswith(("//", "/*")):
+            candidates.append(clean)
+            if len(candidates) >= 6:
+                break
+    if candidates:
+        return candidates
+
+    return sentences[:5] if sentences else ["Document analyzed successfully."]
 
 
 _CODE_TEMPLATES = {
@@ -257,18 +280,56 @@ def _stub_generate_code(prompt: str) -> str:
             return code
     return _DEFAULT_CODE.format(prompt=prompt)
 
+
 def _stub_chat_reply(
     history: list[dict],
-    attached_text: str,
+    attached_text: str = "",
+    doc_context: dict | None = None,
+    documents: list[dict] | None = None,
 ) -> str:
     last_user = next(
-        (m["content"] for m in reversed(history) if m["role"] == "user"),
+        (m.get("prompt") or m.get("content", "") for m in reversed(history) if m["role"] == "user"),
         "",
     )
-    note = " (stub mode — start the real models for a full answer.)"
+
+    all_docs = []
+    if documents:
+        all_docs = list(documents)
+    elif doc_context:
+        all_docs = [doc_context]
+
+    note = "\n\n*(Running in deterministic stub mode — connect local llama-server on port 8080 for generative inference.)*"
+
+    if all_docs:
+        doc_blocks = []
+        for idx, d in enumerate(all_docs, start=1):
+            s_name = d.get("source_name", f"Document {idx}")
+            f_list = d.get("findings", [])
+            bullets = "\n".join(f"  • {f}" for f in f_list[:4]) if f_list else "  • Content loaded and active in memory."
+            doc_blocks.append(f"**Document {idx} ({s_name}):**\n{bullets}")
+
+        docs_header = "\n\n".join(doc_blocks) + "\n\n"
+
+        q_lower = last_user.lower()
+        if any(k in q_lower for k in ["summary", "summarize", "analyze", "what", "tell", "overview", "findings"]):
+            return (
+                f"{docs_header}"
+                f"**Summary:** The {len(all_docs)} document(s) uploaded in this session are listed above with their respective highlights. "
+                f"All documents co-exist in this session's memory and can be referenced at any time."
+                f"{note}"
+            )
+        return (
+            f"{docs_header}"
+            f"**Regarding your query:** *\"{last_user}\"*\n"
+            f"Context from all {len(all_docs)} document(s) is active in this session. You can ask specific questions about any of them."
+            f"{note}"
+        )
+
     if attached_text:
         return (
-            "I looked at the attached content along with your "
-            "message: " + last_user + "." + note
+            f"Analyzed attached text ({len(attached_text)} characters).\n"
+            f"Query: \"{last_user}\""
+            f"{note}"
         )
-    return "You said: " + last_user + "." + note
+
+    return f"You said: \"{last_user}\".{note}"

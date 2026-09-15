@@ -13,6 +13,7 @@ concerns (parsing requests, shaping responses). All real logic belongs
 in orchestrator.py and the tools.
 """
 import os
+import uuid
 
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Depends, Header
 from fastapi.middleware.cors import CORSMiddleware
@@ -34,7 +35,6 @@ def get_current_user(authorization: str | None = Header(None)) -> str:
     if not user_id:
         raise HTTPException(status_code=401, detail="Invalid or expired token")
     return user_id
-from . import chat_store
 
 app = FastAPI(title="UrjaKavach Prototype API", version="0.2.0")
 
@@ -110,6 +110,7 @@ def submit_document_task(
     session_id: str | None = Form(None),
     use_sample: bool = Form(True),
     file: UploadFile | None = File(None),
+    user_id: str = Depends(get_current_user),
 ):
     """OCR -> findings -> approval note.
 
@@ -139,11 +140,14 @@ def submit_document_task(
         raise HTTPException(status_code=404, detail=f"Image not found: {image_path}")
 
     try:
-        result = orchestrator.run_document_flow(image_path, source_name,session_id=session_id)
+        result = orchestrator.run_document_flow(
+            image_path, source_name, session_id=session_id, user_id=user_id
+        )
     except RuntimeError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
 
     return JSONResponse(result)
+
 
 
 @app.post("/api/tasks/code")
@@ -160,46 +164,66 @@ def submit_code_task(prompt: str = Form(...)):
 @app.post("/api/chat")
 def submit_chat_message(
     session_id: str | None = Form(None),
-    message: str = Form(...),
+    message: str | None = Form(None),
     file: UploadFile | None = File(None),
+    files: list[UploadFile] | None = File(None),
     user_id: str = Depends(get_current_user)
 ):
     """General-purpose chat — ask about uploaded docs/code or anything
     else. Grounded on the knowledge base when relevant, with
     per-session history persisted to disk."""
     clear_log()
-    if not message.strip():
+    
+    upload_list: list[UploadFile] = []
+    if files:
+        upload_list.extend([f for f in files if f and f.filename])
+    if file and file.filename:
+        if not any(f.filename == file.filename for f in upload_list):
+            upload_list.append(file)
+            
+    has_files = len(upload_list) > 0
+    clean_msg = (message or "").strip()
+    
+    if not clean_msg and not has_files:
         raise HTTPException(
-            status_code=400, detail="Message must not be empty"
+            status_code=400, detail="Please provide a message prompt or attach a document"
         )
-    if len(message) > 4000:
+    if len(clean_msg) > 4000:
         raise HTTPException(
             status_code=400,
             detail="Message too long (max 4000 characters)",
         )
+    if not clean_msg:
+        clean_msg = "Please analyze and summarize the attached document(s)."
 
     if not session_id or chat_store.load(session_id) is None:
         session_id = chat_store.new_session(user_id)
 
-    attachment_path = None
-    attachment_type = None
-    if file is not None:
-        MAX_UPLOAD_BYTES = 15 * 1024 * 1024
-        content = file.file.read()
+    attachments = []
+    MAX_UPLOAD_BYTES = 15 * 1024 * 1024
+    for up_file in upload_list:
+        content = up_file.file.read()
         if len(content) > MAX_UPLOAD_BYTES:
             raise HTTPException(
-                status_code=413, detail="File too large (max 15MB)"
+                status_code=413, detail=f"File {up_file.filename} too large (max 15MB)"
             )
         if len(content) > 0:
-            attachment_path = os.path.join(
-                config.SAMPLES_DIR, f"chat_upload_{file.filename}"
+            safe_name = os.path.basename(up_file.filename)
+            save_path = os.path.join(
+                config.SAMPLES_DIR, f"chat_upload_{uuid.uuid4().hex[:6]}_{safe_name}"
             )
-            with open(attachment_path, "wb") as f:
+            with open(save_path, "wb") as f:
                 f.write(content)
-            attachment_type = file.content_type or ""
+            attachments.append({
+                "path": save_path,
+                "type": up_file.content_type or "",
+                "name": safe_name,
+            })
 
     result = orchestrator.run_chat_flow(
-        session_id, message, attachment_path, attachment_type
+        session_id,
+        clean_msg,
+        attachments=attachments,
     )
     return JSONResponse(result)
 
@@ -244,3 +268,8 @@ def get_output(filename: str):
 
 # Serve sample images so the frontend can preview "what was scanned"
 app.mount("/samples", StaticFiles(directory=config.SAMPLES_DIR), name="samples")
+
+# Serve frontend static assets (HTML, CSS, JS) at root
+if os.path.exists(config.FRONTEND_DIR):
+    app.mount("/", StaticFiles(directory=config.FRONTEND_DIR, html=True), name="frontend")
+

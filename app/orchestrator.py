@@ -20,6 +20,7 @@ from . import config
 from . import model_router
 from .activity_log import log_step
 from .tools.ocr_tool import ocr_image
+from .tools.doc_extractor import extract_file_content
 from .tools.sandbox_tool import run_in_sandbox
 from .tools.docgen_tool import draft_approval_note
 from .tools.kb_tool import retrieve_context
@@ -29,16 +30,25 @@ MAX_CODE_ATTEMPTS = 2
 
 
 def run_document_flow(
-    image_path: str, source_name: str, session_id: str | None = None
+    image_path: str,
+    source_name: str,
+    session_id: str | None = None,
+    user_id: str = "default",
 ) -> dict:
-    """Scanned document -> OCR -> findings -> approval note."""
+    """Scanned document -> OCR -> findings -> approval note.
+
+    After the flow completes the raw OCR text and extracted findings are
+    persisted on the session via chat_store.set_document_context so that
+    any subsequent chat message in the same session is automatically
+    grounded in the analysed document.
+    """
     task_id = str(uuid.uuid4())[:8]
     log_step(task_id, "plan", "Task received: read scanned report and draft an approval note")
 
-    # Step 1 — vision/OCR tool
-    log_step(task_id, "route", f"Routed vision subtask to {model_router.model_name_for('ocr')}")
-    raw_text = ocr_image(image_path)
-    log_step(task_id, "tool:vision_ocr", "Extracted text from scanned document",
+    # Step 1 — vision/OCR/text extraction tool
+    log_step(task_id, "route", f"Routed extraction subtask to {model_router.model_name_for('ocr')}")
+    raw_text = extract_file_content(image_path, filename=source_name)
+    log_step(task_id, "tool:doc_extractor", "Extracted content from document",
              {"chars": len(raw_text)})
 
     # Step 2 — organisation-specific retrieval (optional, degrades to "")
@@ -72,16 +82,38 @@ def run_document_flow(
     out_path = draft_approval_note(source_name, findings, task_id)
     log_step(task_id, "tool:file_write", "Approval note drafted as DOCX",
              {"path": os.path.basename(out_path)})
+
+    # Step 6 — persist to session so follow-up chat is grounded in this doc
     if not session_id or chat_store.load(session_id) is None:
-        session_id = chat_store.new_session()
-    chat_store.append_message(
-        session_id, "user", f"Ran Document Flow on {source_name}."
+        session_id = chat_store.new_session(user_id=user_id)
+
+    # Store structured document context — this is the key memory link
+    doc_meta = chat_store.add_document_context(
+        session_id,
+        source_name=source_name,
+        raw_text=raw_text,
+        findings=findings,
+        summary=f"Extracted {len(findings)} findings from {source_name}",
     )
+    log_step(task_id, "tool:memory", "Document context stored in session memory",
+             {"session_id": session_id, "findings_count": len(findings)})
+
     findings_text = "\n".join(f"- {f}" for f in findings)
+    doc_payload = {"filename": source_name, "findings": findings, "chars": len(raw_text)}
     chat_store.append_message(
-        session_id, "assistant",
-        f"Document Flow findings:\n{findings_text}\n\n"
-        f"Extracted document text:\n{raw_text[:3000]}"
+        session_id,
+        "user",
+        f"Ran Document Flow on {source_name}.",
+        prompt=f"Ran Document Flow on {source_name}.",
+        document=doc_payload,
+        documents=[doc_payload],
+    )
+    chat_store.append_message(
+        session_id,
+        "assistant",
+        f"Document Flow completed for {source_name}.\nExtracted {len(findings)} findings.\nApproval Note saved to `{os.path.basename(out_path)}`.\n\nKey Highlights:\n{findings_text}",
+        source=source,
+        grounded=bool(kb_context),
     )
 
     log_step(task_id, "done", "Deliverable ready, shown in UI with full audit log")
@@ -91,45 +123,52 @@ def run_document_flow(
         "session_id": session_id,
         "raw_text": raw_text,
         "findings": findings,
+        "output_file": os.path.basename(out_path),
+        "document_path": out_path,
+        "download_url": f"/api/download/{os.path.basename(out_path)}",
         "source": source,
         "grounded": bool(kb_context),
-        "output_file": os.path.basename(out_path),
     }
 
 
 def run_code_flow(prompt: str) -> dict:
-    """Plain-English coding request -> generate -> execute -> verify,
-    with one retry if the first attempt fails in the sandbox."""
+    """Sandboxed code generation, execution, and self-correction."""
     task_id = str(uuid.uuid4())[:8]
     log_step(task_id, "plan", f"Task received: coding request -> {prompt!r}")
 
-    log_step(task_id, "route",
-             f"Routed code subtask to {model_router.model_name_for('code')}")
+    log_step(task_id, "route", f"Routed code subtask to {model_router.model_name_for('code')}")
 
-    code, source, result = "", "stub", {}
+    code = ""
+    source = "stub"
+    result = {"ok": False, "stdout": "", "stderr": "No code generated yet", "returncode": 1}
+    last_error = ""
 
     for attempt in range(1, MAX_CODE_ATTEMPTS + 1):
-        code, source = model_router.generate_code(prompt)
-        log_step(task_id, "tool:code_gen",
-                 f"Code generated (attempt {attempt})",
-                 {"lines": len(code.splitlines()), "source": source})
+        try:
+            code, source = model_router.generate_code(prompt, last_error=last_error)
+        except TypeError:
+            code, source = model_router.generate_code(prompt)
+
+        log_step(task_id, "tool:code_gen", f"Code generated (attempt {attempt})",
+                 {"lines": len(code.splitlines()), "source": source, "attempt": attempt})
 
         log_step(task_id, "tool:code_sandbox", "Running generated code in isolated sandbox")
         result = run_in_sandbox(code)
 
-        if result["ok"]:
+        if result.get("ok"):
             log_step(task_id, "iterate_check",
                      f"Sandbox run succeeded on attempt {attempt} -> task complete")
             break
-
-        if attempt < MAX_CODE_ATTEMPTS:
-            log_step(task_id, "iterate_check",
-                     f"Sandbox run failed on attempt {attempt} -> regenerating",
-                     {"stderr": result["stderr"][:200]})
         else:
-            log_step(task_id, "iterate_check",
-                     "Sandbox run failed after all attempts -> returning diagnostics",
-                     {"stderr": result["stderr"][:200]})
+            if attempt < MAX_CODE_ATTEMPTS:
+                log_step(task_id, "iterate_check",
+                         f"Sandbox run failed on attempt {attempt} -> regenerating",
+                         {"stderr": result["stderr"][:200]})
+                last_error = result["stderr"]
+            else:
+                log_step(task_id, "iterate_check",
+                         "Sandbox run failed after all attempts -> returning diagnostics",
+                         {"stderr": result["stderr"][:200]})
 
     log_step(task_id, "done", "Verified code result shown in UI with full audit log")
 
@@ -140,54 +179,141 @@ def run_code_flow(prompt: str) -> dict:
         "result": result,
     }
 
+
 def run_chat_flow(
     session_id: str,
     message: str,
     attachment_path: str | None = None,
     attachment_type: str | None = None,
+    attachment_name: str | None = None,
+    attachments: list[dict] | None = None,
 ) -> dict:
-    """General-purpose chat: answer a free-form question, optionally
-    grounded in an uploaded file and/or the knowledge base, using the
-    reasoning model. History persists per session on disk."""
+    """General-purpose chat: answer a free-form question with multi-document support.
+
+    If one or multiple images or documents are attached:
+    1. Extracts text from each (OCR for images, pdf text for PDF, docx, or raw text).
+    2. Runs plant knowledge-base retrieval (RAG).
+    3. Extracts structured findings and summaries.
+    4. Appends each document into Session Memory M1 under session_id (co-existing).
+    5. Stores the message with unique message_id and attached documents list.
+
+    All subsequent prompts in this session remain grounded across all attached documents.
+    """
     task_id = str(uuid.uuid4())[:8]
+
+    # Normalize single attachment args into attachments list
+    effective_attachments: list[dict] = []
+    if attachments:
+        effective_attachments.extend(attachments)
+    elif attachment_path:
+        effective_attachments.append({
+            "path": attachment_path,
+            "type": attachment_type,
+            "name": attachment_name or os.path.basename(attachment_path),
+        })
+
+    att_summary = ", ".join(a.get("name", "doc") for a in effective_attachments)
     log_step(
         task_id, "plan",
-        f"Chat message received -> {message[:80]!r}",
+        f"Chat message received -> {message[:80]!r}" + (f" (with {len(effective_attachments)} attachment(s): {att_summary})" if effective_attachments else ""),
     )
 
-    chat_store.append_message(session_id, "user", message)
+    extracted_texts = []
+    new_docs_payload = []
+    kb_contexts = []
 
-    attached_text = ""
-    if attachment_path:
-        if attachment_type and attachment_type.startswith("image/"):
-            log_step(
-                task_id, "route",
-                f"Routed attachment to {model_router.model_name_for('ocr')}",
-            )
-            attached_text = ocr_image(attachment_path)
-            log_step(
-                task_id, "tool:vision_ocr",
-                "Extracted text from attached image",
-            )
-        else:
-            try:
-                with open(
-                    attachment_path, "r",
-                    encoding="utf-8", errors="ignore",
-                ) as f:
-                    attached_text = f.read()[:8000]
-                log_step(task_id, "tool:file_read", "Read attached document")
-            except Exception:  # noqa: BLE001
-                attached_text = ""
+    # Process all incoming attachments
+    for att in effective_attachments:
+        a_path = att.get("path")
+        if not a_path or not os.path.exists(a_path):
+            continue
+        a_name = att.get("name") or os.path.basename(a_path)
+        a_type = att.get("type")
 
-    kb_context = ""
-    if config.USE_KNOWLEDGE_BASE:
-        kb_context = retrieve_context(message)
-        if kb_context:
+        log_step(
+            task_id, "route",
+            f"Extracting content from '{a_name}' via doc_extractor",
+        )
+        text = extract_file_content(a_path, content_type=a_type, filename=a_name)
+        log_step(
+            task_id, "tool:doc_extractor",
+            f"Extracted content from '{a_name}'",
+            {"chars": len(text)},
+        )
+
+        doc_kb = ""
+        if config.USE_KNOWLEDGE_BASE and text:
+            doc_kb = retrieve_context(text)
+            if doc_kb:
+                kb_contexts.append(doc_kb)
+
+        # Extract findings & summary from this document
+        findings, doc_src = model_router.summarize_findings(text, doc_kb)
+        log_step(
+            task_id, "tool:reasoning",
+            f"Extracted {len(findings)} key findings/highlights from {a_name}",
+            {"source": doc_src},
+        )
+
+        # Append to Session Memory M1
+        chat_store.add_document_context(
+            session_id,
+            source_name=a_name,
+            raw_text=text,
+            findings=findings,
+            summary=f"Extracted {len(findings)} observations from {a_name}",
+        )
+        log_step(
+            task_id, "tool:memory",
+            f"Document context saved to Session Memory M1: {a_name}",
+            {"findings_count": len(findings)},
+        )
+
+        new_docs_payload.append({
+            "filename": a_name,
+            "findings": findings,
+            "chars": len(text),
+        })
+        extracted_texts.append(f"### [ATTACHED DOCUMENT: {a_name}]\n{text}")
+
+    combined_attached_text = "\n\n".join(extracted_texts)
+
+    # If no attachments in this turn, check KB for message
+    if not effective_attachments and config.USE_KNOWLEDGE_BASE:
+        msg_kb = retrieve_context(message)
+        if msg_kb:
+            kb_contexts.append(msg_kb)
             log_step(
                 task_id, "tool:knowledge_base",
                 "Retrieved relevant plant reference material",
             )
+
+    combined_kb_context = "\n\n".join(filter(None, kb_contexts))
+
+    # Backward compatibility payload
+    doc_payload = new_docs_payload[0] if new_docs_payload else None
+
+    # Record User Message with unique message_id and documents
+    user_msg_id = chat_store.append_message(
+        session_id,
+        role="user",
+        content=message,
+        prompt=message,
+        document=doc_payload,
+        documents=new_docs_payload,
+    )
+
+    # Retrieve all co-existing documents in session memory
+    all_session_docs = chat_store.get_all_documents(session_id)
+    doc_context = chat_store.get_document_context(session_id)
+
+    if all_session_docs and not effective_attachments:
+        doc_names = ", ".join(d.get("source_name", "?") for d in all_session_docs)
+        log_step(
+            task_id, "tool:memory",
+            f"Grounding query on {len(all_session_docs)} active document(s) in Session Memory M1: {doc_names}",
+            {"doc_count": len(all_session_docs)},
+        )
 
     log_step(
         task_id, "route",
@@ -196,26 +322,43 @@ def run_chat_flow(
 
     session = chat_store.load(session_id)
     history = [
-        {"role": m["role"], "content": m["content"]}
-        for m in session["messages"][-10:]
+        {"role": m["role"], "content": m.get("content", "")}
+        for m in (session["messages"][-10:] if session else [])
     ]
 
-    reply, source = model_router.chat(history, kb_context, attached_text)
+    reply, source = model_router.chat(
+        history,
+        combined_kb_context,
+        combined_attached_text,
+        doc_context=doc_context,
+        documents=all_session_docs,
+    )
     log_step(
         task_id, "tool:reasoning",
         "Generated chat reply", {"source": source},
     )
 
-    chat_store.append_message(session_id, "assistant", reply)
-    log_step(
-        task_id, "done",
-        "Chat reply ready, shown in UI with full audit log",
+    # Record Assistant Message with unique message_id
+    assistant_msg_id = chat_store.append_message(
+        session_id,
+        role="assistant",
+        content=reply,
+        source=source,
+        grounded=bool(combined_kb_context or all_session_docs),
     )
+
+    all_findings = [f for d in all_session_docs for f in d.get("findings", [])] or (doc_context.get("findings", []) if doc_context else [])
 
     return {
         "task_id": task_id,
         "session_id": session_id,
+        "message_id": assistant_msg_id,
+        "user_message_id": user_msg_id,
         "reply": reply,
         "source": source,
-        "grounded": bool(kb_context),
+        "grounded": bool(combined_kb_context or all_session_docs),
+        "findings": all_findings,
+        "document": doc_payload,
+        "documents": new_docs_payload,
+        "all_documents": all_session_docs,
     }

@@ -24,6 +24,7 @@ PROJECT_ROOT = os.path.dirname(APP_DIR)
 
 load_dotenv(os.path.join(PROJECT_ROOT, ".env"))
 
+FRONTEND_DIR = os.path.join(PROJECT_ROOT, "frontend")
 SAMPLES_DIR = os.path.join(APP_DIR, "samples")
 OUTPUTS_DIR = os.path.join(APP_DIR, "outputs")
 LOGS_DIR = os.path.join(APP_DIR, "logs")
