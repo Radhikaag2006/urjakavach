@@ -110,3 +110,13 @@ pytest -v
 
 Green, always. See [docs/TEAM_TRACKS.md](docs/TEAM_TRACKS.md) for branch naming
 and the cross-platform rules.
+
+
+## Security & Authentication
+Role-based authentication is fully implemented. A custom login UI securely manages sessions, requiring Email, GitHub ID, or Phone Number along with a hashed password. User data and session management is handled via an encrypted JSON database (users.json), ensuring users only access their own private chat histories.
+
+## Updates:
+- **Profile Editing:** Logged-in users can update their Name, Profession, and Country via the Edit Profile button in the sidebar.
+- **Animated UI:** Added 3D perspective animations and glowing effects to the authentication container.
+- **Validation:** Enforces 6-character passwords and strictly 6-digit Employee Codes during registration.
+- **Git Safety:** Explicitly ensured users.json is ignored via .gitignore to prevent leaking hashed passwords or PII.

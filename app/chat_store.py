@@ -12,10 +12,11 @@ def _get_path(session_id: str) -> str:
     safe_id = "".join(c for c in session_id if c.isalnum() or c in "-_")
     return os.path.join(SESSIONS_DIR, f"{safe_id}.json")
 
-def new_session() -> str:
+def new_session(user_id: str) -> str:
     session_id = str(uuid.uuid4())
     data = {
         "id": session_id,
+        "user_id": user_id,
         "title": "New chat",
         "created_at": int(time.time()),
         "messages": []
@@ -48,13 +49,13 @@ def append_message(session_id: str, role: str, content: str) -> None:
     with open(_get_path(session_id), "w", encoding="utf-8") as f:
         json.dump(data, f)
 
-def list_sessions() -> list[dict]:
+def list_sessions(user_id: str) -> list[dict]:
     sessions = []
     for filename in os.listdir(SESSIONS_DIR):
         if filename.endswith(".json"):
             session_id = filename[:-5]
             data = load(session_id)
-            if data:
+            if data and data.get("user_id") == user_id:
                 # Return summary without all messages for the list view
                 sessions.append({
                     "id": data["id"],

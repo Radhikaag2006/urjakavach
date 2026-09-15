@@ -7,7 +7,37 @@
 </head>
 <body>
 
-<div class="app">
+<div id="authScreen" class="auth-screen">
+  <div class="auth-container">
+    <div class="auth-logo">
+      <div class="thunderbolt">&#9889;</div>
+    </div>
+    <h1 class="auth-title">UrjaKavach</h1>
+    
+    <div id="loginForm" class="auth-form">
+      <input type="text" id="loginId" placeholder="Email / Phone / GitHub ID" />
+      <input type="password" id="loginPassword" placeholder="Password" />
+      <button onclick="handleLogin()" class="btn-primary">Login</button>
+      <div class="auth-link" onclick="toggleAuthMode()">If you don't have an account, register here</div>
+    </div>
+
+    <div id="registerForm" class="auth-form panel-hidden">
+      <input type="text" id="regName" placeholder="Full Name" />
+      <input type="text" id="regProfession" placeholder="Profession" />
+      <input type="text" id="regId" placeholder="Email / Phone" />
+      <input type="text" id="regGithub" placeholder="GitHub ID" />
+      <input type="text" id="regCountry" placeholder="Country" />
+      <input type="text" id="regEmpCode" placeholder="Employee Code (e.g. 123456)" />
+      <input type="password" id="regPassword" placeholder="Password (> 6 chars)" />
+      <button onclick="handleRegister()" class="btn-primary">Register</button>
+      <div class="auth-link" onclick="toggleAuthMode()">Already have an account? Login here</div>
+    </div>
+    
+    <div id="authError" class="auth-error"></div>
+  </div>
+</div>
+
+<div class="app panel-hidden" id="mainApp">
 
   <aside class="sidebar">
     <div class="sidebar-top">
@@ -32,11 +62,13 @@
         <span id="themeIcon">&#9789;</span> <span id="themeLabel">Dark mode</span>
       </button>
       <div class="user-profile">
-        <div class="avatar">R</div>
+        <div class="avatar" id="userAvatar">U</div>
         <div class="user-info">
-          <div class="user-name">Radhika</div>
+          <div class="user-name" id="userName">User</div>
           <div class="user-sub" id="healthLine">checking backend&hellip;</div>
         </div>
+        <button onclick="openProfileModal()" class="logout-btn" title="Edit Profile" style="margin-left: 5px;">&#9998;</button>
+        <button onclick="handleLogout()" class="logout-btn" title="Sign out">&#10162;</button>
       </div>
     </div>
   </aside>
@@ -127,6 +159,23 @@
       </p>
       <textarea class="prompt" id="codePrompt" rows="4">Write code to compute the average of a list of numbers</textarea>
       <button class="run-btn" id="runCode" onclick="runCodeFlow()">Run Code Flow</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay panel-hidden" id="profileModal">
+  <div class="modal">
+    <div class="modal-header">
+      <span>Edit Profile</span>
+      <button onclick="closeModal('profileModal')">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="auth-form" style="margin-top: 10px;">
+        <input type="text" id="editName" placeholder="Full Name" />
+        <input type="text" id="editProfession" placeholder="Profession" />
+        <input type="text" id="editCountry" placeholder="Country" />
+        <button class="btn-primary" onclick="handleUpdateProfile()">Save Changes</button>
+      </div>
     </div>
   </div>
 </div>

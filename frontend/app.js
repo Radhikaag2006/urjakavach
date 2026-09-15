@@ -4,6 +4,146 @@
  */
 
 const API = "http://localhost:8000";
+
+let authToken = localStorage.getItem('uk_auth_token') || null;
+
+function showAuthError(msg) {
+  document.getElementById('authError').textContent = msg;
+}
+
+let authMode = 'login';
+
+function toggleAuthMode() {
+  authMode = authMode === 'login' ? 'register' : 'login';
+  document.getElementById('loginForm').classList.toggle('panel-hidden', authMode !== 'login');
+  document.getElementById('registerForm').classList.toggle('panel-hidden', authMode !== 'register');
+  document.getElementById('authError').textContent = '';
+}
+
+
+let currentUserProfile = {};
+
+async function fetchMe() {
+  try {
+    const res = await fetch(API + '/api/auth/me', { headers: getAuthHeaders() });
+    if (res.ok) {
+      currentUserProfile = await res.json();
+      document.getElementById('userName').textContent = currentUserProfile.name;
+      document.getElementById('userAvatar').textContent = currentUserProfile.name.charAt(0).toUpperCase();
+    }
+  } catch (e) {}
+}
+
+function openProfileModal() {
+  document.getElementById('editName').value = currentUserProfile.name || '';
+  document.getElementById('editProfession').value = currentUserProfile.profession || '';
+  document.getElementById('editCountry').value = currentUserProfile.country || '';
+  openModal('profileModal');
+}
+
+async function handleUpdateProfile() {
+  const payload = {
+    name: document.getElementById('editName').value,
+    profession: document.getElementById('editProfession').value,
+    country: document.getElementById('editCountry').value
+  };
+  try {
+    const res = await fetch(API + '/api/auth/me', {
+      method: 'PUT',
+      headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    if (res.ok) {
+      closeModal('profileModal');
+      await fetchMe();
+    } else {
+      alert('Failed to update profile');
+    }
+  } catch(e) {
+    alert('Connection failed');
+  }
+}
+
+async function handleLogin() {
+  const identifier = document.getElementById('loginId').value;
+  const password = document.getElementById('loginPassword').value;
+  if (!identifier || !password) return showAuthError('Please enter details');
+  
+  const form = new FormData();
+  form.append('identifier', identifier);
+  form.append('password', password);
+  
+  try {
+    const res = await fetch(API + '/api/auth/login', { method: 'POST', body: form });
+    const data = await res.json();
+    if (res.ok) {
+      authToken = data.token;
+      localStorage.setItem('uk_auth_token', authToken);
+      document.getElementById('authScreen').classList.add('panel-hidden');
+      document.getElementById('mainApp').classList.remove('panel-hidden');
+      await fetchMe();
+      loadHistory();
+    } else {
+      showAuthError(data.detail || 'Login failed');
+    }
+  } catch (e) {
+    showAuthError('Connection failed');
+  }
+}
+
+function handleLogout() {
+  authToken = null;
+  localStorage.removeItem('uk_auth_token');
+  window.location.reload();
+}
+
+async function handleRegister() {
+  const name = document.getElementById('regName').value;
+  const profession = document.getElementById('regProfession').value;
+  const identifier = document.getElementById('regId').value;
+  const github = document.getElementById('regGithub').value;
+  const country = document.getElementById('regCountry').value;
+  const empCode = document.getElementById('regEmpCode').value;
+  const password = document.getElementById('regPassword').value;
+  
+  if (!identifier || !password || !name || !empCode) return showAuthError('Please fill required fields');
+  
+  const form = new FormData();
+  form.append('identifier', identifier);
+  form.append('password', password);
+  form.append('name', name);
+  form.append('profession', profession);
+  form.append('country', country);
+  form.append('emp_code', empCode);
+  form.append('github_id', github);
+  
+  try {
+    const res = await fetch(API + '/api/auth/register', { method: 'POST', body: form });
+    const data = await res.json();
+    if (res.ok) {
+      // auto login
+      document.getElementById('loginId').value = identifier;
+      document.getElementById('loginPassword').value = password;
+      handleLogin();
+    } else {
+      showAuthError(data.detail || 'Registration failed');
+    }
+  } catch (e) {
+    showAuthError('Connection failed');
+  }
+}
+
+function getAuthHeaders() {
+  return authToken ? { 'Authorization': 'Bearer ' + authToken } : {};
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  if (authToken) {
+    document.getElementById('authScreen').classList.add('panel-hidden');
+    document.getElementById('mainApp').classList.remove('panel-hidden');
+    fetchMe();
+  }
+});
 let uploadedFile = null;      // for the document-flow modal
 let chatAttachment = null;    // for the chat input's attach button
 let currentSessionId = null;
@@ -154,7 +294,7 @@ async function sendChatMessage() {
     if (currentSessionId) form.append("session_id", currentSessionId);
     if (chatAttachment) form.append("file", chatAttachment);
 
-    const res = await fetch(API + "/api/chat", { method: "POST", body: form });
+    const res = await fetch(API + "/api/chat", { method: "POST", body: form, headers: getAuthHeaders() });
     const rawText = await res.text();
     if (!res.ok) throw new Error("Server returned an error: " + rawText.slice(0, 300));
 
@@ -225,7 +365,7 @@ function relativeTime(createdAtSeconds) {
 
 async function loadHistory() {
   try {
-    const res = await fetch(API + "/api/chat/sessions");
+    const res = await fetch(API + "/api/chat/sessions", { headers: getAuthHeaders() });
     const data = await res.json();
     const list = document.getElementById("historyList");
 
@@ -263,7 +403,7 @@ async function loadHistory() {
 
 async function openSession(sessionId) {
   try {
-    const res = await fetch(API + "/api/chat/sessions/" + sessionId);
+    const res = await fetch(API + "/api/chat/sessions/" + sessionId, { headers: getAuthHeaders() });
     if (!res.ok) return;
     const data = await res.json();
 
