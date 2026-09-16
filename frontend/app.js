@@ -181,7 +181,9 @@ function closeModal(id) { document.getElementById(id).classList.add("panel-hidde
 /* Activity panel                                                    */
 /* ---------------------------------------------------------------- */
 function toggleActivityPanel() {
-  document.getElementById("activityPanel").classList.toggle("open");
+  const panel = document.getElementById("activityPanel");
+  panel.classList.toggle("open");
+  if (panel.classList.contains("open")) refreshLogs();
 }
 
 function stageClass(stage) {
@@ -750,6 +752,7 @@ async function openSession(sessionId) {
 
     document.querySelectorAll(".history-item").forEach(el => el.classList.remove("active"));
     await loadHistory();
+    await refreshLogs();
   } catch (e) {
     console.error("open session failed", e);
   }

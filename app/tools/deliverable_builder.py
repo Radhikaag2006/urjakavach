@@ -31,10 +31,11 @@ except ImportError:
 
 
 # Theme palette
-NAVY_BLUE = RGBColor(28, 93, 153)       # #1C5D99
-DARK_SLATE = RGBColor(30, 41, 59)       # #1E293B
-MUTED_GRAY = RGBColor(100, 116, 139)    # #64748B
-ACCENT_BLUE = RGBColor(59, 130, 246)    # #3B82F6
+if HAS_PPTX:
+    NAVY_BLUE = RGBColor(28, 93, 153)       # #1C5D99
+    DARK_SLATE = RGBColor(30, 41, 59)       # #1E293B
+    MUTED_GRAY = RGBColor(100, 116, 139)    # #64748B
+    ACCENT_BLUE = RGBColor(59, 130, 246)    # #3B82F6
 
 
 def generate_presentation(

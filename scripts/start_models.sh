@@ -29,11 +29,15 @@ for m in "$REASONING_MODEL" "$CODE_MODEL"; do
   fi
 done
 
+# Prevent duplicate model processes from competing for CPU and memory.
+pkill -f 'llama-server.*--port 8080' 2>/dev/null || true
+pkill -f 'llama-server.*--port 8081' 2>/dev/null || true
+
 echo "Starting reasoning model on :8080 ..."
-llama-server -m "$REASONING_MODEL" --port 8080 --ctx-size 4096 > /tmp/llama_reasoning.log 2>&1 &
+llama-server -m "$REASONING_MODEL" --port 8080 --ctx-size 3072 --threads 4 --threads-batch 4 --parallel 1 --n-gpu-layers 0 > /tmp/llama_reasoning.log 2>&1 &
 
 echo "Starting code model on :8081 ..."
-llama-server -m "$CODE_MODEL" --port 8081 --ctx-size 4096 > /tmp/llama_code.log 2>&1 &
+llama-server -m "$CODE_MODEL" --port 8081 --ctx-size 3072 --threads 4 --threads-batch 4 --parallel 1 --n-gpu-layers 0 > /tmp/llama_code.log 2>&1 &
 
 sleep 5
 echo ""

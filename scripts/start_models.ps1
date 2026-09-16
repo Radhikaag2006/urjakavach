@@ -20,11 +20,21 @@ foreach ($m in @($ReasoningModel, $CodeModel)) {
     }
 }
 
+# Prevent duplicate model processes from competing for CPU and memory.
+$oldServers = Get-CimInstance Win32_Process -Filter "Name = 'llama-server.exe'" |
+    Where-Object { $_.CommandLine -match '--port\s+(8080|8081)' }
+foreach ($server in $oldServers) {
+    Stop-Process -Id $server.ProcessId -Force -ErrorAction SilentlyContinue
+}
+if ($oldServers) {
+    Start-Sleep -Seconds 1
+}
+
 Write-Host "Starting reasoning model on :8080 ..."
-Start-Process -NoNewWindow:$false llama-server -ArgumentList "-m `"$ReasoningModel`" --port 8080 --ctx-size 4096"
+Start-Process -NoNewWindow:$false llama-server -ArgumentList "-m `"$ReasoningModel`" --port 8080 --ctx-size 3072 --threads 4 --threads-batch 4 --parallel 1 --n-gpu-layers 0"
 
 Write-Host "Starting code model on :8081 ..."
-Start-Process -NoNewWindow:$false llama-server -ArgumentList "-m `"$CodeModel`" --port 8081 --ctx-size 4096"
+Start-Process -NoNewWindow:$false llama-server -ArgumentList "-m `"$CodeModel`" --port 8081 --ctx-size 3072 --threads 4 --threads-batch 4 --parallel 1 --n-gpu-layers 0"
 
 Start-Sleep -Seconds 5
 

@@ -60,7 +60,7 @@ REASONING_MODEL_NAME = os.getenv("REASONING_MODEL_NAME", "Llama-3.2-3B-Instruct"
 CODE_MODEL_NAME = os.getenv("CODE_MODEL_NAME", "Qwen2.5-Coder-1.5B-Instruct")
 
 MODEL_TIMEOUT_SEC = int(os.getenv("MODEL_TIMEOUT_SEC", "120"))
-MODEL_MAX_TOKENS = int(os.getenv("MODEL_MAX_TOKENS", "512"))
+MODEL_MAX_TOKENS = int(os.getenv("MODEL_MAX_TOKENS", "384"))
 MODEL_TEMPERATURE = float(os.getenv("MODEL_TEMPERATURE", "0.2"))
 # Optional explicit path to the Tesseract binary. Leave unset to rely on
 # PATH (works on Mac/Linux usually; Windows PATH issues are common).

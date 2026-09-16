@@ -8,6 +8,7 @@ python-dotenv
 pytesseract          # needs the Tesseract OS binary too - see docs/SETUP.md
 Pillow
 python-docx
+pypdf                 # PDF text extraction
 
 # Model layer
 requests
