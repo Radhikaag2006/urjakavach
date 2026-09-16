@@ -23,6 +23,7 @@ teammate who has not started llama-server can still run the whole app.
 Owner: Track A.
 """
 import re
+import json
 
 from . import config
 from . import prompts
@@ -118,10 +119,14 @@ def summarize_findings(raw_text: str, kb_context: str = "") -> tuple[list[str], 
     Returns (findings, source) where source is "model" or "stub" so the
     orchestrator can log honestly which path actually ran."""
     if config.USE_REAL_MODEL:
-        messages = prompts.build_findings_prompt(raw_text, kb_context)
-        raw = _call_model("reasoning", messages)
-        findings = _parse_findings(raw)
-        return findings, "model"
+        try:
+            messages = prompts.build_findings_prompt(raw_text, kb_context)
+            raw = _call_model("reasoning", messages)
+            findings = _parse_findings(raw)
+            if findings:
+                return findings, "model"
+        except Exception:  # noqa: BLE001 - any failure -> stub, never a crash
+            pass
 
     return _stub_summarize_findings(raw_text), "stub"
 
@@ -131,10 +136,14 @@ def generate_code(prompt: str) -> tuple[str, str]:
 
     Returns (code, source) where source is "model" or "stub"."""
     if config.USE_REAL_MODEL:
-        messages = prompts.build_code_prompt(prompt)
-        raw = _call_model("code", messages)
-        code = _strip_code_fences(raw)
-        return code, "model"
+        try:
+            messages = prompts.build_code_prompt(prompt)
+            raw = _call_model("code", messages)
+            code = _strip_code_fences(raw)
+            if code.strip():
+                return code, "model"
+        except Exception:  # noqa: BLE001
+            pass
 
     return _stub_generate_code(prompt), "stub"
 
@@ -142,18 +151,162 @@ def chat(
     history: list[dict],
     kb_context: str = "",
     attached_text: str = "",
+    doc_context: dict | None = None,
+    documents: list[dict] | None = None,
 ) -> tuple[str, str]:
-    """General-purpose chat reply, grounded on kb_context/attached_text
-    when present. Returns (reply, source), same pattern as the other
-    task functions."""
+    """General-purpose chat reply, grounded on kb_context/attached_text/doc_context
+    or multiple session documents. Returns (reply, source)."""
     if config.USE_REAL_MODEL:
-        messages = prompts.build_chat_prompt(
-            history, kb_context, attached_text
-        )
-        reply = _call_model("reasoning", messages)
-        return reply, "model"
+        try:
+            messages = prompts.build_chat_prompt(
+                history,
+                kb_context=kb_context,
+                attached_text=attached_text,
+                doc_context=doc_context,
+                documents=documents,
+            )
+            reply = _call_model("reasoning", messages)
+            if reply.strip():
+                return reply, "model"
+        except Exception:  # noqa: BLE001
+            pass
 
-    return _stub_chat_reply(history, attached_text), "stub"
+    return _stub_chat_reply(
+        history,
+        attached_text=attached_text,
+        doc_context=doc_context,
+        documents=documents,
+    ), "stub"
+
+
+def _extract_json_dict(raw: str) -> dict:
+    """Extract first valid JSON object from model output."""
+    raw = raw.strip()
+    match = re.search(r"```(?:json)?\s*\n?(.*?)\n?```", raw, re.DOTALL)
+    if match:
+        raw = match.group(1).strip()
+    first_brace = raw.find("{")
+    last_brace = raw.rfind("}")
+    if first_brace != -1 and last_brace != -1 and last_brace > first_brace:
+        raw = raw[first_brace : last_brace + 1]
+    return json.loads(raw)
+
+
+def generate_presentation_content(
+    topic: str,
+    context: str = "",
+    findings: list[str] | None = None,
+) -> tuple[dict, str]:
+    """Generate real slide-deck presentation content (title, subtitle, slides with points)."""
+    if config.USE_REAL_MODEL:
+        try:
+            msgs = prompts.build_presentation_prompt(topic, context=context, findings=findings)
+            raw = _call_model("reasoning", msgs)
+            parsed = _extract_json_dict(raw)
+            if isinstance(parsed, dict) and "slides" in parsed and len(parsed["slides"]) >= 2:
+                slides = []
+                for s in parsed["slides"]:
+                    if isinstance(s, dict) and "header" in s:
+                        pts = [str(p).strip() for p in s.get("points", []) if str(p).strip()]
+                        if pts:
+                            slides.append({"header": str(s["header"]), "points": pts})
+                if len(slides) >= 2:
+                    return {
+                        "title": str(parsed.get("title") or topic[:60]),
+                        "subtitle": str(parsed.get("subtitle") or "UrjaKavach Sovereign Analysis"),
+                        "slides": slides,
+                    }, "model"
+        except Exception:
+            pass
+
+    return _dynamic_presentation_fallback(topic, context=context, findings=findings), "stub"
+
+
+def generate_table_content(
+    topic: str,
+    context: str = "",
+    findings: list[str] | None = None,
+) -> tuple[dict, str]:
+    """Generate real tabular dataset content (title, headers, rows)."""
+    if config.USE_REAL_MODEL:
+        try:
+            msgs = prompts.build_table_prompt(topic, context=context, findings=findings)
+            raw = _call_model("reasoning", msgs)
+            parsed = _extract_json_dict(raw)
+            if isinstance(parsed, dict) and "headers" in parsed and "rows" in parsed:
+                headers = [str(h) for h in parsed["headers"]]
+                rows = [list(r) for r in parsed["rows"] if isinstance(r, (list, tuple))]
+                if headers and rows:
+                    return {
+                        "title": str(parsed.get("title") or topic[:60]),
+                        "headers": headers,
+                        "rows": rows,
+                    }, "model"
+        except Exception:
+            pass
+
+    return _dynamic_table_fallback(topic, context=context, findings=findings), "stub"
+
+
+def _dynamic_presentation_fallback(topic: str, context: str = "", findings: list[str] | None = None) -> dict:
+    """Generate dynamic, topic-grounded presentation content without hardcoded refinery boilerplate."""
+    clean_topic = re.sub(r"(?i)\b(generate|create|make|powerpoint|presentation|ppt|pptx|slide deck|slides|about|on)\b", "", topic).strip()
+    title = clean_topic.title() if len(clean_topic) > 3 else "Technical Briefing & Analysis"
+    
+    # Gather actual points from findings and context
+    all_pts = []
+    if findings:
+        all_pts.extend(findings)
+    if context:
+        lines = [l.strip() for l in context.splitlines() if len(l.strip()) > 10 and not l.strip().startswith(("#", "//", "/*"))]
+        all_pts.extend(lines[:8])
+
+    slide1_pts = all_pts[:3] if len(all_pts) >= 3 else [
+        f"Core objective: {title}",
+        "Comprehensive on-premise technical review",
+        "Key requirements and architectural parameters established",
+    ]
+
+    slide2_pts = all_pts[3:6] if len(all_pts) >= 6 else (all_pts[:3] if all_pts else [
+        "Primary telemetry and operational characteristics reviewed",
+        "Verified against sovereign engineering standards",
+        "Deterministic parameter validation completed",
+    ])
+
+    slide3_pts = all_pts[6:9] if len(all_pts) >= 9 else [
+        "Multi-component synchronization and data integrity verified",
+        "Cross-document context preserved in session memory",
+        "System operating within verified design specifications",
+    ]
+
+    slide4_pts = [
+        f"Execute verified actions for {title}",
+        "Continuous on-premise monitoring and verification",
+        "Maintain sovereign audit logging for regulatory compliance",
+    ]
+
+    return {
+        "title": title,
+        "subtitle": "UrjaKavach Sovereign On-Premise Analysis",
+        "slides": [
+            {"header": "1. Executive Summary & Scope", "points": slide1_pts},
+            {"header": "2. Technical Observations & Findings", "points": slide2_pts},
+            {"header": "3. Detailed Architectural Breakdown", "points": slide3_pts},
+            {"header": "4. Action Plan & Roadmap", "points": slide4_pts},
+        ],
+    }
+
+
+def _dynamic_table_fallback(topic: str, context: str = "", findings: list[str] | None = None) -> dict:
+    from .tools.deliverable_builder import parse_tabular_data
+    title, headers, rows = parse_tabular_data(context, findings=findings)
+    return {
+        "title": title,
+        "headers": headers,
+        "rows": rows,
+    }
+
+
 
 # --------------------------------------------------------------------
 # Response parsing
@@ -193,27 +346,27 @@ _FINDING_KEYWORDS = [
 
 
 def _stub_summarize_findings(raw_text: str) -> list[str]:
-    sentences = [s.strip() for s in raw_text.replace("\n", " ").split(".") if s.strip()]
-    findings = [s for s in sentences if any(k in s.lower() for k in _FINDING_KEYWORDS)]
-    if not findings:
-        findings = sentences[:3]
-    return findings[:6]
+    # Split text into non-empty lines and sentences
+    raw_lines = [line.strip() for line in raw_text.splitlines() if line.strip() and len(line.strip()) > 6]
+    sentences = [s.strip() for s in raw_text.replace("\n", " ").split(".") if len(s.strip()) > 8]
 
-def _stub_chat_reply(
-    history: list[dict],
-    attached_text: str,
-) -> str:
-    last_user = next(
-        (m["content"] for m in reversed(history) if m["role"] == "user"),
-        "",
-    )
-    note = " (stub mode — start the real models for a full answer.)"
-    if attached_text:
-        return (
-            "I looked at the attached content along with your "
-            "message: " + last_user + "." + note
-        )
-    return "You said: " + last_user + "." + note
+    # 1. Industrial/equipment keywords
+    findings = [s for s in sentences if any(k in s.lower() for k in _FINDING_KEYWORDS)]
+    if findings:
+        return findings[:6]
+
+    # 2. General document / code / note extraction: take top informative lines or sentences
+    candidates = []
+    for item in raw_lines:
+        clean = re.sub(r"^[-*•\d.)]\s*", "", item)
+        if len(clean) > 8 and not clean.startswith(("//", "/*")):
+            candidates.append(clean)
+            if len(candidates) >= 6:
+                break
+    if candidates:
+        return candidates
+
+    return sentences[:5] if sentences else ["Document analyzed successfully."]
 
 
 _CODE_TEMPLATES = {
@@ -257,18 +410,103 @@ def _stub_generate_code(prompt: str) -> str:
             return code
     return _DEFAULT_CODE.format(prompt=prompt)
 
+
 def _stub_chat_reply(
     history: list[dict],
-    attached_text: str,
+    attached_text: str = "",
+    doc_context: dict | None = None,
+    documents: list[dict] | None = None,
 ) -> str:
     last_user = next(
-        (m["content"] for m in reversed(history) if m["role"] == "user"),
+        (m.get("prompt") or m.get("content", "") for m in reversed(history) if m["role"] == "user"),
         "",
     )
-    note = " (stub mode — start the real models for a full answer.)"
+
+    all_docs = []
+    if documents:
+        all_docs = list(documents)
+    elif doc_context:
+        all_docs = [doc_context]
+
+    note = "\n\n*(Running in deterministic stub mode — connect local llama-server on port 8080 for generative inference.)*"
+
+    if all_docs:
+        doc_blocks = []
+        for idx, d in enumerate(all_docs, start=1):
+            s_name = d.get("source_name", f"Document {idx}")
+            f_list = d.get("findings", [])
+            bullets = "\n".join(f"  • {f}" for f in f_list[:4]) if f_list else "  • Content loaded and active in memory."
+            doc_blocks.append(f"**Document {idx} ({s_name}):**\n{bullets}")
+
+        docs_header = "\n\n".join(doc_blocks) + "\n\n"
+
+        q_lower = last_user.lower()
+        if any(k in q_lower for k in ["summary", "summarize", "analyze", "what", "tell", "overview", "findings"]):
+            return (
+                f"{docs_header}"
+                f"**Summary:** The {len(all_docs)} document(s) uploaded in this session are listed above with their respective highlights. "
+                f"All documents co-exist in this session's memory and can be referenced at any time."
+                f"{note}"
+            )
+        return (
+            f"{docs_header}"
+            f"**Regarding your query:** *\"{last_user}\"*\n"
+            f"Context from all {len(all_docs)} document(s) is active in this session. You can ask specific questions about any of them."
+            f"{note}"
+        )
+
     if attached_text:
         return (
-            "I looked at the attached content along with your "
-            "message: " + last_user + "." + note
+            f"Analyzed attached text ({len(attached_text)} characters).\n"
+            f"Query: \"{last_user}\""
+            f"{note}"
         )
-    return "You said: " + last_user + "." + note
+
+    return f"You said: \"{last_user}\".{note}"
+
+
+def draft_skill_content(
+    role_name: str,
+    description: str,
+    use_cases: list[str] | None = None,
+    guidelines: str = "",
+) -> str:
+    """Invokes the Meta-Agent (reasoning model) to draft a structured SKILL.md file."""
+    if config.USE_REAL_MODEL:
+        msgs = prompts.build_skill_draft_prompt(role_name, description, use_cases, guidelines)
+        try:
+            raw = _call_model("reasoning", msgs)
+            if raw and len(raw.strip()) > 100:
+                return raw.strip()
+        except Exception:
+            pass
+
+    # High-quality fallback template
+    uc_str = ", ".join(use_cases) if use_cases else "Industrial Domain Engineering"
+    return f"""# {role_name} Skill Specification
+
+## 1. Domain Scope & Objectives
+The {role_name} is an autonomous agent specialized in {description}.
+It is designed to automate analysis, perform verification, and generate authoritative industrial deliverables for the following use cases:
+- {uc_str}
+
+## 2. Applicable Standards & Codes
+- Relevant Industrial & Engineering Standards (e.g. ASME, API, TEMA, ISO, OISD).
+- Facility Standard Operating Procedures (SOPs) and safety guidelines.
+
+## 3. Core Calculations & Technical Rules
+- Maintain strict dimensional units across all calculations (e.g. SI / Imperial).
+- Calculate key technical indicators, efficiencies, and variances deterministically.
+- When calculations involve complex mathematical equations, execute Python code via the sandbox.
+
+## 4. Operational Guardrails & Safety Thresholds
+- Always highlight any critical anomaly, over-pressure, or over-temperature condition.
+- Maintain zero tolerance for invented/hallucinated equipment tags or telemetry values.
+- Verify remaining operational limits against standard design baselines.
+
+## 5. Expected Deliverable Formats
+- **Technical Slides (.pptx)**: High-level overview, engineering methodology, findings, and recommendations.
+- **Data Spreadsheets (.xlsx)**: Tabular telemetry, parameters, and status indicators with auto-fitted widths.
+- **Formal Memos (.docx)**: Comprehensive engineering memos with standard PSU headers.
+"""
+

@@ -13,6 +13,7 @@ concerns (parsing requests, shaping responses). All real logic belongs
 in orchestrator.py and the tools.
 """
 import os
+import uuid
 
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Depends, Header
 from fastapi.middleware.cors import CORSMiddleware
@@ -25,6 +26,8 @@ from .activity_log import read_log, clear_log
 from .tools.kb_tool import kb_status
 from . import chat_store
 from . import auth
+from .agents.agent_store import agent_store
+from .tools.registry import list_tools, get_tool, suggest_tools_for_intent
 
 def get_current_user(authorization: str | None = Header(None)) -> str:
     if not authorization or not authorization.startswith("Bearer "):
@@ -34,7 +37,6 @@ def get_current_user(authorization: str | None = Header(None)) -> str:
     if not user_id:
         raise HTTPException(status_code=401, detail="Invalid or expired token")
     return user_id
-from . import chat_store
 
 app = FastAPI(title="UrjaKavach Prototype API", version="0.2.0")
 
@@ -110,6 +112,7 @@ def submit_document_task(
     session_id: str | None = Form(None),
     use_sample: bool = Form(True),
     file: UploadFile | None = File(None),
+    user_id: str = Depends(get_current_user),
 ):
     """OCR -> findings -> approval note.
 
@@ -139,11 +142,14 @@ def submit_document_task(
         raise HTTPException(status_code=404, detail=f"Image not found: {image_path}")
 
     try:
-        result = orchestrator.run_document_flow(image_path, source_name,session_id=session_id)
+        result = orchestrator.run_document_flow(
+            image_path, source_name, session_id=session_id, user_id=user_id
+        )
     except RuntimeError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
 
     return JSONResponse(result)
+
 
 
 @app.post("/api/tasks/code")
@@ -157,51 +163,195 @@ def submit_code_task(prompt: str = Form(...)):
     result = orchestrator.run_code_flow(prompt)
     return JSONResponse(result)
 
+@app.post("/api/sandbox/execute")
+def execute_code_in_sandbox(
+    code: str = Form(...),
+    user_id: str = Depends(get_current_user),
+):
+    """Execute code snippet directly in isolated sandbox and return stdout/stderr."""
+    from .tools.sandbox_tool import run_in_sandbox
+    if not code.strip():
+        raise HTTPException(status_code=400, detail="Code cannot be empty")
+    res = run_in_sandbox(code)
+    return JSONResponse(res)
+
 @app.post("/api/chat")
 def submit_chat_message(
     session_id: str | None = Form(None),
-    message: str = Form(...),
+    message: str | None = Form(None),
     file: UploadFile | None = File(None),
+    files: list[UploadFile] | None = File(None),
+    agent_id: str | None = Form(None),
     user_id: str = Depends(get_current_user)
 ):
     """General-purpose chat — ask about uploaded docs/code or anything
     else. Grounded on the knowledge base when relevant, with
     per-session history persisted to disk."""
     clear_log()
-    if not message.strip():
+    
+    upload_list: list[UploadFile] = []
+    if files:
+        upload_list.extend([f for f in files if f and f.filename])
+    if file and file.filename:
+        if not any(f.filename == file.filename for f in upload_list):
+            upload_list.append(file)
+            
+    has_files = len(upload_list) > 0
+    clean_msg = (message or "").strip()
+    
+    if not clean_msg and not has_files:
         raise HTTPException(
-            status_code=400, detail="Message must not be empty"
+            status_code=400, detail="Please provide a message prompt or attach a document"
         )
-    if len(message) > 4000:
+    if len(clean_msg) > 4000:
         raise HTTPException(
             status_code=400,
             detail="Message too long (max 4000 characters)",
         )
+    if not clean_msg:
+        clean_msg = "Please analyze and summarize the attached document(s)."
 
     if not session_id or chat_store.load(session_id) is None:
         session_id = chat_store.new_session(user_id)
 
-    attachment_path = None
-    attachment_type = None
-    if file is not None:
-        MAX_UPLOAD_BYTES = 15 * 1024 * 1024
-        content = file.file.read()
+    attachments = []
+    MAX_UPLOAD_BYTES = 15 * 1024 * 1024
+    for up_file in upload_list:
+        content = up_file.file.read()
         if len(content) > MAX_UPLOAD_BYTES:
             raise HTTPException(
-                status_code=413, detail="File too large (max 15MB)"
+                status_code=413, detail=f"File {up_file.filename} too large (max 15MB)"
             )
         if len(content) > 0:
-            attachment_path = os.path.join(
-                config.SAMPLES_DIR, f"chat_upload_{file.filename}"
+            safe_name = os.path.basename(up_file.filename)
+            save_path = os.path.join(
+                config.SAMPLES_DIR, f"chat_upload_{uuid.uuid4().hex[:6]}_{safe_name}"
             )
-            with open(attachment_path, "wb") as f:
+            with open(save_path, "wb") as f:
                 f.write(content)
-            attachment_type = file.content_type or ""
+            attachments.append({
+                "path": save_path,
+                "type": up_file.content_type or "",
+                "name": safe_name,
+            })
 
     result = orchestrator.run_chat_flow(
-        session_id, message, attachment_path, attachment_type
+        session_id,
+        clean_msg,
+        attachments=attachments,
+        agent_id=agent_id,
     )
     return JSONResponse(result)
+
+
+# --------------------------------------------------------------------
+# Common Tools & Agent Onboarder Endpoints
+# --------------------------------------------------------------------
+class OnboardAgentRequest(BaseModel):
+    name: str
+    description: str
+    use_case_ids: list[str] = []
+    system_prompt: str
+    skill_content: str
+    tool_ids: list[str] = []
+    model_type: str = "reasoning"
+    department: str = "Custom Operations"
+    starter_prompts: list[str] = []
+
+
+class DraftSkillRequest(BaseModel):
+    role_name: str
+    description: str
+    use_cases: list[str] = []
+    guidelines: str = ""
+
+
+@app.get("/api/tools")
+def get_tools_catalog():
+    """Return all registered tools and their capabilities."""
+    return {"tools": list_tools()}
+
+
+@app.get("/api/tools/suggest")
+def suggest_tools(intent: str = ""):
+    """Suggest tool IDs for a given intent or use case."""
+    return {"suggested_tools": suggest_tools_for_intent(intent)}
+
+
+@app.get("/api/agents")
+def get_agents():
+    """List all registered agents in the common pool."""
+    return {
+        "agents": agent_store.list_agents(),
+        "use_cases": agent_store.list_all_use_cases(),
+    }
+
+
+@app.get("/api/agents/use-cases")
+def get_use_cases_catalog():
+    """Return distinct use cases with mapped agents (M:N directory)."""
+    return {"use_cases": agent_store.list_all_use_cases()}
+
+
+@app.get("/api/agents/search")
+def search_agents(q: str = "", limit: int = 5):
+    """Local air-gapped semantic search across use cases, agent names, and skills."""
+    return {"results": agent_store.search_agents(q, top_k=limit)}
+
+
+@app.get("/api/agents/{agent_id}")
+def get_agent_detail(agent_id: str):
+    ag = agent_store.get_agent(agent_id)
+    if not ag:
+        raise HTTPException(status_code=404, detail="Agent not found")
+    return ag
+
+
+@app.post("/api/agents/onboard")
+def onboard_agent(req: OnboardAgentRequest, user_id: str = Depends(get_current_user)):
+    """Onboard a new customizable agent with custom skill and tool selection."""
+    if not req.name.strip():
+        raise HTTPException(status_code=400, detail="Agent name is required")
+    if not req.description.strip():
+        raise HTTPException(status_code=400, detail="Agent description is required")
+    if not req.skill_content.strip():
+        raise HTTPException(status_code=400, detail="Skill content (SKILL.md) is required")
+
+    ag = agent_store.create_agent(
+        name=req.name,
+        description=req.description,
+        use_case_ids=req.use_case_ids,
+        system_prompt=req.system_prompt,
+        skill_content=req.skill_content,
+        tool_ids=req.tool_ids,
+        model_type=req.model_type,
+        department=req.department,
+        starter_prompts=req.starter_prompts,
+    )
+    return {"status": "ok", "agent": ag}
+
+
+@app.delete("/api/agents/{agent_id}")
+def delete_agent(agent_id: str, user_id: str = Depends(get_current_user)):
+    success = agent_store.delete_agent(agent_id)
+    if not success:
+        raise HTTPException(status_code=400, detail="Cannot delete agent (built-in or not found)")
+    return {"status": "ok", "deleted": agent_id}
+
+
+@app.post("/api/agents/draft-skill")
+def draft_skill(req: DraftSkillRequest):
+    """Recursive Meta-Agent: uses local reasoning model to draft a comprehensive SKILL.md."""
+    if not req.role_name.strip():
+        raise HTTPException(status_code=400, detail="Role name is required")
+    drafted_md = model_router.draft_skill_content(
+        role_name=req.role_name,
+        description=req.description,
+        use_cases=req.use_cases,
+        guidelines=req.guidelines,
+    )
+    return {"status": "ok", "skill_content": drafted_md}
+
 
 
 @app.get("/api/chat/sessions")
@@ -231,6 +381,7 @@ def get_logs():
 
 
 @app.get("/api/outputs/{filename}")
+@app.get("/api/download/{filename}")
 def get_output(filename: str):
     # Prevent path traversal — filename must be a bare name
     if os.path.basename(filename) != filename:
@@ -244,3 +395,8 @@ def get_output(filename: str):
 
 # Serve sample images so the frontend can preview "what was scanned"
 app.mount("/samples", StaticFiles(directory=config.SAMPLES_DIR), name="samples")
+
+# Serve frontend static assets (HTML, CSS, JS) at root
+if os.path.exists(config.FRONTEND_DIR):
+    app.mount("/", StaticFiles(directory=config.FRONTEND_DIR, html=True), name="frontend")
+
