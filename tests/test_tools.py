@@ -115,6 +115,27 @@ class TestComputerVision:
         assert res["severity"] in ("Minor", "Major", "Critical", "Observation")
         assert os.path.exists(os.path.join(config.OUTPUTS_DIR, res["annotated_filename"]))
 
+    def test_rejects_non_engineering_natural_image(self, tmp_path):
+        from PIL import Image, ImageDraw
+        from app.tools.cv_tool import analyze_engineering_image
+
+        img_path = str(tmp_path / "natural_flower.png")
+        # Vibrant green foliage background with pink/red floral elements
+        im = Image.new("RGB", (300, 300), color=(34, 139, 34))  # Forest green
+        draw = ImageDraw.Draw(im)
+        draw.ellipse([50, 50, 250, 250], fill=(255, 20, 147))  # Vibrant pink/magenta petal
+        draw.ellipse([100, 100, 200, 200], fill=(255, 105, 180))
+        im.save(img_path)
+
+        res = analyze_engineering_image(img_path)
+        assert res["ok"] is True
+        assert res["domain"] == "non_engineering"
+        assert res["analysis_mode"] == "non_engineering_rejected"
+        assert res["is_engineering_image"] is False
+        assert res["corrosion_area_percentage"] == 0.0
+        assert "Non-Engineering" in res["summary"]
+
+
 
 class TestDiagramGenerator:
     def test_generates_heat_exchanger_diagram(self):

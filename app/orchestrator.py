@@ -346,12 +346,14 @@ def run_chat_flow(
     )
     cv_triggers = [
         "vision", "cv", "corrosion", "defect", "drawing", "p&id", "pid", "inspect image",
-        "analyze photo", "crack", "surface", "rust", "pit", "contour", "weld"
+        "analyze photo", "crack", "surface", "rust", "pit", "contour", "weld",
+        "diagram", "schematic", "blueprint", "photo", "image", "inspect", "check this", "what is this"
     ]
     should_run_cv = bool(first_image_att) and (
         any(k in msg_lower for k in cv_triggers)
         or (active_agent and active_agent.get("id") == "agent_cv_vision")
         or (permitted_tools and "cv_tool" in permitted_tools)
+        or not msg_lower.strip()
     )
     if permitted_tools is not None and "cv_tool" not in permitted_tools:
         should_run_cv = False
@@ -359,7 +361,7 @@ def run_chat_flow(
     if should_run_cv and first_image_att:
         log_step(
             task_id, "tool:cv_tool",
-            f"Running Computer Vision analysis on '{first_image_att['name']}' (OpenCV & contours)",
+            f"Running Computer Vision analysis on '{first_image_att['name']}' (OpenCV & domain validation)",
         )
         cv_res = analyze_engineering_image(first_image_att["path"], task_id=task_id)
         if cv_res.get("ok"):
@@ -367,13 +369,21 @@ def run_chat_flow(
             log_step(
                 task_id, "tool:cv_tool",
                 f"CV Complete: {cv_res.get('summary')}",
-                {"severity": cv_res.get("severity"), "defects": cv_res.get("defect_count", 0)}
+                {"severity": cv_res.get("severity"), "domain": cv_res.get("domain")}
             )
-            combined_attached_text += (
-                f"\n\n### [COMPUTER VISION ANALYSIS RESULT]\n"
-                f"Summary: {cv_res.get('summary')}\n"
-                f"Annotated Inspection Image: {cv_res.get('annotated_filename')}\n"
-            )
+            if cv_res.get("domain") == "non_engineering":
+                combined_attached_text += (
+                    f"\n\n### [IMAGE DOMAIN REJECTION NOTICE]\n"
+                    f"The attached file '{first_image_att['name']}' was evaluated with Computer Vision and categorized as NON-ENGINEERING: {cv_res.get('summary')}\n"
+                    f"CRITICAL INSTRUCTION: This image is NOT a P&ID, mechanical drawing, blueprint, or industrial equipment photo. It appears to be an organic or natural photograph (e.g. flower/botanical or nature photo).\n"
+                    f"You MUST inform the user clearly that this image is not an engineering diagram or plant surface, and that CV defect analysis was skipped to prevent false alarms. Do not describe it as a diagram.\n"
+                )
+            else:
+                combined_attached_text += (
+                    f"\n\n### [COMPUTER VISION ANALYSIS RESULT]\n"
+                    f"Summary: {cv_res.get('summary')}\n"
+                    f"Annotated Inspection Image: {cv_res.get('annotated_filename')}\n"
+                )
             all_findings.append(cv_res.get("summary"))
 
     # Autonomous Subtask 1: Code Generation and Sandbox Execution
@@ -536,11 +546,25 @@ def run_chat_flow(
 
     # Autonomous Subtask 3: Engineering Diagram & Schematic Generation
     image_deliverable = None
-    diag_triggers = [
-        "diagram", "schematic", "pfd", "flow diagram", "generate diagram", "generate image",
-        "process flow", "draw a", "draw schematic", "plot a", "chart of", "curve"
+    gen_verbs = ["generate", "draw", "plot", "create", "synthesize", "make", "render", "produce"]
+    explicit_diag_targets = [
+        "pfd", "process flow diagram", "flow sheet", "flow diagram",
+        "degradation curve", "degradation chart", "thickness curve",
+        "heat exchanger diagram", "column diagram", "manifold schematic",
+        "engineering diagram", "process schematic"
     ]
-    should_gen_diag = any(k in msg_lower for k in diag_triggers) and not (should_ppt or should_excel or should_csv)
+    has_gen_verb = any(v in msg_lower for v in gen_verbs)
+    has_explicit_target = any(t in msg_lower for t in explicit_diag_targets)
+    is_diagram_request = has_explicit_target or (has_gen_verb and any(w in msg_lower for w in ["diagram", "schematic", "chart", "curve"]))
+
+    if first_image_att:
+        # If an image is attached, ONLY synthesize a new diagram if the user explicitly asks to generate/create one
+        should_gen_diag = has_gen_verb and (has_explicit_target or "diagram" in msg_lower or "schematic" in msg_lower)
+    else:
+        # If no image attached, trigger on diagram generation request
+        should_gen_diag = is_diagram_request
+
+    should_gen_diag = should_gen_diag and not (should_ppt or should_excel or should_csv)
     if permitted_tools is not None and "diagram_generator" not in permitted_tools:
         should_gen_diag = False
 

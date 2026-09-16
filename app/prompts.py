@@ -138,9 +138,9 @@ def build_chat_prompt(
             if raw.strip():
                 doc_section.append(f"Extracted Content:\n\"\"\"\n{raw[:5000]}\n\"\"\"")
             context_parts.append("\n\n".join(doc_section))
-    elif attached_text:
+    if attached_text:
         context_parts.append(
-            "Attached document content:\n\"\"\"\n" + attached_text[:5000] + "\n\"\"\""
+            "Attached Context & Tool Analysis Results:\n\"\"\"\n" + attached_text[:5000] + "\n\"\"\""
         )
 
     messages = [{"role": "system", "content": system}]

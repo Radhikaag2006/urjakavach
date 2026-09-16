@@ -437,28 +437,33 @@ function renderDeliverablesHtml(codeResult, docResult, msgId, findings, cvResult
 
   // 2. Computer Vision Inspection Deliverable
   if (cvResult && (cvResult.annotated_filename || cvResult.summary)) {
-    const sevClass = cvResult.severity ? `badge-severity-${cvResult.severity.toLowerCase()}` : "badge-severity-observation";
-    const defectBadge = cvResult.defect_count !== undefined
+    const isNonEng = cvResult.domain === "non_engineering" || cvResult.is_engineering_image === false;
+    const sevClass = cvResult.severity ? `badge-severity-${cvResult.severity.toLowerCase().replace(/[^a-z0-9_-]/g, '')}` : "badge-severity-observation";
+    const defectBadge = (!isNonEng && cvResult.defect_count !== undefined)
       ? `<span class="tag">Defects: ${cvResult.defect_count}</span>`
       : "";
-    const corrBadge = cvResult.corrosion_area_percentage !== undefined
+    const corrBadge = (!isNonEng && cvResult.corrosion_area_percentage !== undefined)
       ? `<span class="tag">Corrosion: ${cvResult.corrosion_area_percentage}%</span>`
       : "";
-    const tagsBadge = cvResult.instrument_tags_count !== undefined
+    const tagsBadge = (!isNonEng && cvResult.instrument_tags_count !== undefined)
       ? `<span class="tag">Tags Detected: ${cvResult.instrument_tags_count}</span>`
+      : "";
+    const domainBadge = isNonEng
+      ? `<span class="tag" style="background:rgba(245,158,11,0.2);color:#f59e0b;border-color:rgba(245,158,11,0.4);">&#9888; Non-Engineering Photo (${escapeHtml(cvResult.recognized_type || 'Natural Scene')})</span>`
       : "";
 
     html += `
-      <div class="chat-cv-box">
+      <div class="chat-cv-box" style="${isNonEng ? 'border-color:rgba(245,158,11,0.5);' : ''}">
         <div class="chat-cv-header">
-          <div class="chat-cv-title">&#128269; Computer Vision Inspection Analysis</div>
-          <div style="display:flex;gap:6px;align-items:center;">
-            ${cvResult.severity ? `<span class="${sevClass}">${escapeHtml(cvResult.severity)}</span>` : ""}
+          <div class="chat-cv-title">${isNonEng ? '&#9888; Image Validation: Non-Engineering Input' : '&#128269; Computer Vision Inspection Analysis'}</div>
+          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+            ${domainBadge}
+            ${!isNonEng && cvResult.severity ? `<span class="${sevClass}">${escapeHtml(cvResult.severity)}</span>` : ""}
             ${defectBadge} ${corrBadge} ${tagsBadge}
             ${cvResult.annotated_url ? `<a class="deliverable-btn" href="${escapeHtml(cvResult.annotated_url)}" download="${escapeHtml(cvResult.annotated_filename)}">&#11015; Annotated Overlay</a>` : ""}
           </div>
         </div>
-        <div style="font-size:12.5px;color:var(--text-muted);line-height:1.4;">${escapeHtml(cvResult.summary || "")}</div>
+        <div style="font-size:12.5px;color:${isNonEng ? '#fbbf24' : 'var(--text-muted)'};line-height:1.4;">${escapeHtml(cvResult.summary || "")}</div>
         ${cvResult.annotated_url ? `
           <img src="${escapeHtml(cvResult.annotated_url)}" class="cv-annotated-img"
                onclick="openImageViewer('${escapeHtml(cvResult.annotated_url)}', 'Computer Vision Annotated Inspection Overlay')"
