@@ -3,6 +3,8 @@
 <head>
 <meta charset="utf-8">
 <title data-i18n="title">UrjaKavach — Sovereign AI Workbench</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -12,9 +14,72 @@
 
     <!-- LEFT BRAND PANEL -->
     <div class="auth-brand-panel">
-      <div class="auth-brand-logo">⚡</div>
+      <div class="svg-container">
+        <svg viewBox="0 0 120 135" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="cyanBlueGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#00f3ff" />
+              <stop offset="50%" stop-color="#0088ff" />
+              <stop offset="100%" stop-color="#0033cc" />
+            </linearGradient>
+            <linearGradient id="metallicGrad" x1="0%" y1="100%" x2="100%" y2="0%">
+              <stop offset="0%" stop-color="#2a4563" />
+              <stop offset="50%" stop-color="#5a86b3" />
+              <stop offset="100%" stop-color="#80b3e6" />
+            </linearGradient>
+            <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#fff8b0" />
+              <stop offset="40%" stop-color="#ffcc00" />
+              <stop offset="100%" stop-color="#ff6600" />
+            </linearGradient>
+            <filter id="neonGlow" x="-30%" y="-30%" width="160%" height="160%">
+              <feGaussianBlur in="SourceGraphic" stdDeviation="2.5" result="blur1" />
+              <feGaussianBlur in="SourceGraphic" stdDeviation="5" result="blur2" />
+              <feMerge><feMergeNode in="blur2" /><feMergeNode in="blur1" /><feMergeNode in="SourceGraphic" /></feMerge>
+            </filter>
+            <filter id="sparkGlow" x="-50%" y="-50%" width="200%" height="200%">
+              <feGaussianBlur in="SourceGraphic" stdDeviation="2" result="blur1" />
+              <feGaussianBlur in="SourceGraphic" stdDeviation="6" result="blur2" />
+              <feMerge><feMergeNode in="blur2" /><feMergeNode in="blur1" /><feMergeNode in="SourceGraphic" /></feMerge>
+            </filter>
+          </defs>
+          <g transform="translate(60, 65)">
+            <path d="M 0 -55 L 45 -40 L 40 20 L 0 65 L -40 20 L -45 -40 Z"
+                  fill="none" stroke="url(#cyanBlueGrad)" stroke-width="2.5"
+                  filter="url(#neonGlow)" stroke-linejoin="round" />
+            <path d="M 0 -45 L 35 -33 L 31 15 L 0 52 L -31 15 L -35 -33 Z"
+                  fill="rgba(0, 20, 40, 0.4)" stroke="url(#metallicGrad)" stroke-width="1.5" stroke-linejoin="round" />
+            <path d="M 0 -38 L 28 -27 L 24 10 L 0 42 L -24 10 L -28 -27 Z"
+                  fill="none" stroke="url(#cyanBlueGrad)" stroke-width="1"
+                  stroke-dasharray="6 4" opacity="0.6" stroke-linejoin="round" />
+            <path d="M -35 -10 C -15 -35, 15 -35, 35 -10 C 20 10, -20 20, -15 45"
+                  fill="none" stroke="url(#cyanBlueGrad)" stroke-width="1.5"
+                  filter="url(#neonGlow)" stroke-linecap="round" />
+            <path d="M 35 15 C 20 40, -10 30, -25 15 C -20 -10, 10 -20, 25 -35"
+                  fill="none" stroke="#00f3ff" stroke-width="1" opacity="0.7"
+                  stroke-linecap="round" stroke-dasharray="30 10" />
+            <circle cx="0" cy="0" r="18" fill="none" stroke="url(#metallicGrad)" stroke-width="0.5" opacity="0.8"/>
+            <circle cx="0" cy="0" r="13" fill="none" stroke="#00f3ff" stroke-width="1" stroke-dasharray="4 6" opacity="0.5"/>
+            <circle cx="-35" cy="-10" r="2.5" fill="#00f3ff" filter="url(#neonGlow)"/>
+            <circle cx="35" cy="-10" r="1.5" fill="#00f3ff" />
+            <circle cx="-15" cy="45" r="2" fill="#00f3ff" filter="url(#neonGlow)"/>
+            <circle cx="35" cy="15" r="2" fill="#00f3ff" />
+            <circle cx="25" cy="-35" r="1.5" fill="#00f3ff" />
+            <circle cx="-25" cy="15" r="1.5" fill="#00f3ff" opacity="0.7"/>
+            <g class="spark-pulse">
+              <path d="M 0 -12 Q 0 0 -12 0 Q 0 0 0 12 Q 0 0 12 0 Q 0 0 0 -12 Z"
+                    fill="url(#goldGrad)" filter="url(#sparkGlow)" />
+              <path d="M 0 -6 Q 0 0 -6 0 Q 0 0 0 6 Q 0 0 6 0 Q 0 0 0 -6 Z"
+                    fill="#ffffff" />
+            </g>
+            <circle cx="0" cy="-55" r="2" fill="#fff" />
+            <circle cx="45" cy="-40" r="2" fill="#00f3ff" />
+            <circle cx="-45" cy="-40" r="2" fill="#00f3ff" />
+          </g>
+        </svg>
+      </div>
       <div class="auth-brand-name">Urja Kavach</div>
-      <div class="auth-brand-sub">Enterprise AI Assistant · v1.0</div>
+      <div class="auth-brand-sub">Offline LLM &nbsp;·&nbsp; v1.0</div>
       <div class="auth-brand-tagline">Secure. Private. Offline.</div>
     </div>
 
@@ -154,7 +219,7 @@
 
     <div class="sidebar-bottom">
       <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
-        <select class="lang-select" style="background:var(--bg-input); color:var(--text); border:1px solid var(--border); padding:5px; border-radius:4px; font-size: 12px;"><option value="en">English</option><option value="hi">हिन्दी</option><option value="kn">ಕನ್ನಡ</option></select>
+        <select id="sidebarLangSelect" class="lang-select" onchange="window.changeLanguage && changeLanguage(this.value)" style="background:var(--bg-input); color:var(--text); border:1px solid var(--border); padding:5px; border-radius:4px; font-size: 12px; cursor:pointer; outline:none;"><option value="en">English</option><option value="hi">हिन्दी</option><option value="kn">ಕನ್ನಡ</option></select>
         <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" style="background: none; border: none; color: var(--text); cursor: pointer;">
           <span id="themeIcon">&#9789;</span>
         </button>
@@ -175,10 +240,9 @@
             <div class="pm-role" id="pmRole">Employee</div>
           </div>
           <div class="profile-menu-items">
-            <div class="pm-item" onclick="openProfileModal()">⚙️ Settings</div>
-            <div class="pm-item" onclick="alert('Preferred language can be set from top right menu.')">🌐 Language</div>
+            <div class="pm-item" onclick="openProfileModal()">Edit Profile</div>
             <div class="pm-separator"></div>
-            <div class="pm-item pm-logout" onclick="handleLogout()">🚪 Sign out</div>
+            <div class="pm-item pm-logout" onclick="handleLogout()">Sign out</div>
           </div>
         </div>
       </div>

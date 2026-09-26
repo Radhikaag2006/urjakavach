@@ -1157,16 +1157,18 @@ button.run-btn:disabled { background: var(--bg-hover); color: var(--text-dim); c
 
 /* Brand panel - left side */
 .auth-brand-panel {
-  width: 320px;
+  width: 300px;
   flex-shrink: 0;
-  background: linear-gradient(145deg, #0d1f40 0%, #1a3566 60%, #0f2855 100%);
-  padding: 50px 40px;
+  background: linear-gradient(145deg, #0a1628 0%, #0d1f40 50%, #0a1228 100%);
+  padding: 40px 32px;
   display: flex;
   flex-direction: column;
+  align-items: center;
   justify-content: center;
-  gap: 12px;
+  gap: 6px;
   position: relative;
   overflow: hidden;
+  text-align: center;
 }
 
 .auth-brand-panel::before {
@@ -1185,10 +1187,16 @@ button.run-btn:disabled { background: var(--bg-hover); color: var(--text-dim); c
 }
 
 .auth-brand-name {
-  font-size: 26px;
-  font-weight: 700;
-  color: #fff;
-  letter-spacing: -0.3px;
+  font-family: 'Montserrat', 'Segoe UI', sans-serif;
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  background: linear-gradient(to bottom, #ffffff 30%, #a4c5df 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-top: 8px;
 }
 
 .auth-brand-sub {
@@ -1440,4 +1448,48 @@ button.run-btn:disabled { background: var(--bg-hover); color: var(--text-dim); c
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+}
+
+/* SVG Logo in brand panel */
+.auth-brand-panel .svg-container {
+  width: 180px;
+  height: 200px;
+  margin-bottom: 20px;
+  filter: drop-shadow(0px 8px 24px rgba(0, 153, 255, 0.2));
+  transition: transform 0.4s ease, filter 0.4s ease;
+  flex-shrink: 0;
+}
+
+.auth-brand-panel .svg-container:hover {
+  transform: scale(1.04) translateY(-4px);
+  filter: drop-shadow(0px 14px 36px rgba(0, 243, 255, 0.3));
+}
+
+/* Spark pulse animation */
+.spark-pulse {
+  animation: sparkPulse 2s infinite alternate;
+  transform-origin: center;
+}
+
+@keyframes sparkPulse {
+  0%  { transform: scale(0.95); opacity: 0.8; }
+  100% { transform: scale(1.05); opacity: 1; }
+}
+
+/* Left-align labels in auth forms */
+.uk-label {
+  text-align: left !important;
+  display: block;
+}
+
+.uk-field-group, .uk-field-row {
+  text-align: left;
+}
+
+.uk-form-title, .uk-form-sub {
+  text-align: left;
+}
+
+.uk-switch-link {
+  text-align: center;
 }
