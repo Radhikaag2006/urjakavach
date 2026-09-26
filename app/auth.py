@@ -104,6 +104,8 @@ def get_user_info(user_id: str) -> dict | None:
 def authenticate_user(identifier: str, password: str) -> str:
     users = _load_users()
     identifier = identifier.strip().lower()
+    if "@" not in identifier:
+        identifier = f"{identifier}@mrpl.in"
     
     for u_id, u_data in users.items():
         if u_data.get("identifier") == identifier:
