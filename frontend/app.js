@@ -26,6 +26,7 @@ let currentUserProfile = {};
 async function fetchMe() {
   try {
     const res = await fetch(API + '/api/auth/me', { headers: getAuthHeaders() });
+    if (res.status === 401) { handleLogout(); return; }
     if (res.ok) {
       currentUserProfile = await res.json();
       document.getElementById('userName').textContent = currentUserProfile.name;
@@ -57,17 +58,17 @@ async function handleUpdateProfile() {
       closeModal('profileModal');
       await fetchMe();
     } else {
-      alert('Failed to update profile');
+      alert(window.t('app.failed_update_profile'));
     }
   } catch(e) {
-    alert('Connection failed');
+    alert(window.t('app.conn_failed'));
   }
 }
 
 async function handleLogin() {
   const identifier = document.getElementById('loginId').value;
   const password = document.getElementById('loginPassword').value;
-  if (!identifier || !password) return showAuthError('Please enter details');
+  if (!identifier || !password) return showAuthError(window.t('app.please_enter_details'));
   
   const form = new FormData();
   form.append('identifier', identifier);
@@ -84,10 +85,10 @@ async function handleLogin() {
       await fetchMe();
       loadHistory();
     } else {
-      showAuthError(data.detail || 'Login failed');
+      showAuthError(data.detail || window.t('app.login_failed'));
     }
   } catch (e) {
-    showAuthError('Connection failed');
+    showAuthError(window.t('app.conn_failed'));
   }
 }
 
@@ -106,7 +107,7 @@ async function handleRegister() {
   const empCode = document.getElementById('regEmpCode').value;
   const password = document.getElementById('regPassword').value;
   
-  if (!identifier || !password || !name || !empCode) return showAuthError('Please fill required fields');
+  if (!identifier || !password || !name || !empCode) return showAuthError(window.t('app.please_fill_required'));
   
   const form = new FormData();
   form.append('identifier', identifier);
@@ -126,10 +127,10 @@ async function handleRegister() {
       document.getElementById('loginPassword').value = password;
       handleLogin();
     } else {
-      showAuthError(data.detail || 'Registration failed');
+      showAuthError(data.detail || window.t('app.registration_failed'));
     }
   } catch (e) {
-    showAuthError('Connection failed');
+    showAuthError(window.t('app.conn_failed'));
   }
 }
 
@@ -156,7 +157,7 @@ function applyTheme(theme) {
   document.getElementById("themeIcon").textContent =
     theme === "dark" ? "\u263D" : "\u2600";
   document.getElementById("themeLabel").textContent =
-    theme === "dark" ? "Dark mode" : "Light mode";
+    theme === "dark" ? window.t('sidebar.dark_mode') : window.t('sidebar.light_mode');
   try { localStorage.setItem("uk_theme", theme); } catch (e) {}
 }
 
@@ -301,7 +302,7 @@ function copySnippet(id, btn) {
   if (!code) return;
   navigator.clipboard.writeText(code).then(() => {
     const old = btn.textContent;
-    btn.textContent = "✓ Copied!";
+    btn.textContent = window.t('app.copied');
     btn.classList.add("btn-copied");
     setTimeout(() => {
       btn.textContent = old;
@@ -355,7 +356,7 @@ function copyMessageText(msgId, btn) {
   if (!text) return;
   navigator.clipboard.writeText(text).then(() => {
     const old = btn.textContent;
-    btn.textContent = "✓ Copied Text!";
+    btn.textContent = window.t('app.copied_text');
     btn.classList.add("btn-copied");
     setTimeout(() => {
       btn.textContent = old;
@@ -572,7 +573,11 @@ async function sendChatMessage() {
 
   try {
     const form = new FormData();
-    form.append("message", message || "Please analyze and summarize the attached document(s).");
+        let baseMsg = message || "Please analyze and summarize the attached document(s).";
+    let lang = window.getCurrentLang ? window.getCurrentLang() : 'en';
+    if (lang === 'hi') baseMsg += "\n\n[SYSTEM: You MUST translate and write your entire final response strictly in Hindi.]";
+    else if (lang === 'kn') baseMsg += "\n\n[SYSTEM: You MUST translate and write your entire final response strictly in Kannada.]";
+    form.append("message", baseMsg);
     if (currentSessionId) form.append("session_id", currentSessionId);
     if (activeAgent && activeAgent.id) form.append("agent_id", activeAgent.id);
     for (const f of filesToSend) {
@@ -580,6 +585,7 @@ async function sendChatMessage() {
     }
 
     const res = await fetch(API + "/api/chat", { method: "POST", body: form, headers: getAuthHeaders() });
+    if (res.status === 401) { handleLogout(); return; }
     const rawText = await res.text();
     if (!res.ok) throw new Error("Server returned an error: " + rawText.slice(0, 300));
 
@@ -633,7 +639,7 @@ function quickPrompt(text) {
 function startNewChat() {
   currentSessionId = null;
   clearChatAttachments();
-  document.getElementById("chatTitle").textContent = "New chat";
+  document.getElementById("chatTitle").textContent = window.t('main.new_chat_title');
   document.getElementById("chatMessages").innerHTML =
     '<div class="empty-state" id="emptyState">' +
     '<h2>UrjaKavach Sovereign AI</h2>' +
@@ -716,7 +722,7 @@ async function openSession(sessionId) {
     const data = await res.json();
 
     currentSessionId = sessionId;
-    document.getElementById("chatTitle").textContent = data.title || "Chat";
+    document.getElementById("chatTitle").textContent = data.title || window.t('app.chat');
 
     const container = document.getElementById("chatMessages");
     container.innerHTML = "";
@@ -830,7 +836,7 @@ async function runDocFlow() {
     addMessageBubble("assistant", '<div class="msg-error">' + escapeHtml(err.message) + "</div>");
   } finally {
     btn.disabled = false;
-    btn.textContent = "Run Document Flow";
+    btn.textContent = window.t('modals.run_doc_flow');
   }
 }
 
@@ -877,7 +883,7 @@ async function runCodeFlow() {
     addMessageBubble("assistant", '<div class="msg-error">' + escapeHtml(err.message) + "</div>");
   } finally {
     btn.disabled = false;
-    btn.textContent = "Run Code Flow";
+    btn.textContent = window.t('modals.run_code_flow');
   }
 }
 
@@ -898,7 +904,7 @@ async function runCodeFlow() {
     document.getElementById("kbLine").textContent =
       kb.available ? "knowledge base: loaded" : "knowledge base: not built";
   } catch (e) {
-    document.getElementById("healthLine").textContent = "backend not reachable";
+    document.getElementById("healthLine").textContent = window.t('app.backend_not_reachable');
   }
 })();
 
@@ -1149,7 +1155,7 @@ function onSkillFileChosen(event) {
   const file = event.target.files[0];
   if (!file) return;
 
-  document.getElementById("skillFileNameHint").textContent = `Loaded: ${file.name} (${Math.round(file.size/1024)} KB)`;
+  document.getElementById("skillFileNameHint").textContent = `${window.t('app.loaded')}${file.name} (${Math.round(file.size/1024)} KB)`;
   const reader = new FileReader();
   reader.onload = (e) => {
     document.getElementById("newAgentSkill").value = e.target.result;
@@ -1164,7 +1170,7 @@ async function draftSkillWithAi() {
   const prompt = (document.getElementById("newAgentPrompt").value || "").trim();
 
   if (!name) {
-    alert("Please provide at least an Agent Role Name before drafting with AI.");
+    alert(window.t('app.provide_agent_role'));
     document.getElementById("newAgentName").focus();
     return;
   }
@@ -1191,9 +1197,9 @@ async function draftSkillWithAi() {
     if (!res.ok) throw new Error("Failed to draft skill");
     const data = await res.json();
     document.getElementById("newAgentSkill").value = data.skill_content || "";
-    document.getElementById("skillFileNameHint").textContent = "✨ Drafted by AI Meta-Agent (Llama-3.2-3B)";
+    document.getElementById("skillFileNameHint").textContent = window.t('app.drafted_by_ai');
   } catch (err) {
-    alert("Skill drafting error: " + err.message);
+    alert(window.t('app.skill_drafting_error') + err.message);
   } finally {
     draftBtn.disabled = false;
     draftBtn.textContent = origText;
@@ -1259,12 +1265,12 @@ async function handleOnboardSubmit(event) {
     // Reset form and switch back to discover tab
     document.getElementById("onboardAgentForm").reset();
     switchAgentTab("discover");
-    alert(`🎉 Successfully onboarded '${onboardedAgent.name}'! It is now active in your chat session.`);
+    alert(`${window.t('app.successfully_onboarded')}${onboardedAgent.name}${window.t('app.now_active')}`);
   } catch (err) {
-    alert("Onboarding failed: " + err.message);
+    alert(window.t('app.onboarding_failed') + err.message);
   } finally {
     submitBtn.disabled = false;
-    submitBtn.textContent = "🚀 Onboard & Launch Agent";
+    submitBtn.textContent = window.t('modals.onboard_btn');
   }
 }
 

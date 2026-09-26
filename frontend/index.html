@@ -2,7 +2,7 @@
 <html lang="en" data-theme="dark">
 <head>
 <meta charset="utf-8">
-<title>UrjaKavach — Sovereign AI Workbench</title>
+<title data-i18n="title">UrjaKavach — Sovereign AI Workbench</title>
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -11,26 +11,27 @@
   <div class="auth-container">
     <div class="auth-logo">
       <div class="thunderbolt">&#9889;</div>
+      <select class="lang-select" style="margin-bottom:10px; background:#333; color:white; border:none; padding:5px; border-radius:4px;"><option value="en">English</option><option value="hi">हिंदी</option><option value="kn">ಕನ್ನಡ</option></select>
     </div>
     <h1 class="auth-title">UrjaKavach</h1>
     
     <div id="loginForm" class="auth-form">
-      <input type="text" id="loginId" placeholder="Email / Phone / GitHub ID" />
-      <input type="password" id="loginPassword" placeholder="Password" />
-      <button onclick="handleLogin()" class="btn-primary">Login</button>
-      <div class="auth-link" onclick="toggleAuthMode()">If you don't have an account, register here</div>
+      <input type="text" id="loginId" data-i18n-placeholder="auth.login_id" placeholder="Email / Phone / GitHub ID" />
+      <input type="password" id="loginPassword" data-i18n-placeholder="auth.password" placeholder="Password" />
+      <button onclick="handleLogin()" class="btn-primary" data-i18n="auth.login_btn">Login</button>
+      <div class="auth-link" onclick="toggleAuthMode()" data-i18n="auth.no_account">If you don't have an account, register here</div>
     </div>
 
     <div id="registerForm" class="auth-form panel-hidden">
-      <input type="text" id="regName" placeholder="Full Name" />
-      <input type="text" id="regProfession" placeholder="Profession" />
-      <input type="text" id="regId" placeholder="Email / Phone" />
-      <input type="text" id="regGithub" placeholder="GitHub ID" />
-      <input type="text" id="regCountry" placeholder="Country" />
-      <input type="text" id="regEmpCode" placeholder="Employee Code (e.g. 123456)" />
-      <input type="password" id="regPassword" placeholder="Password (> 6 chars)" />
-      <button onclick="handleRegister()" class="btn-primary">Register</button>
-      <div class="auth-link" onclick="toggleAuthMode()">Already have an account? Login here</div>
+      <input type="text" id="regName" data-i18n-placeholder="auth.reg_name" placeholder="Full Name" />
+      <input type="text" id="regProfession" data-i18n-placeholder="auth.reg_prof" placeholder="Profession" />
+      <input type="text" id="regId" data-i18n-placeholder="auth.reg_id" placeholder="Email / Phone" />
+      <input type="text" id="regGithub" data-i18n-placeholder="auth.reg_gh" placeholder="GitHub ID" />
+      <input type="text" id="regCountry" data-i18n-placeholder="auth.reg_country" placeholder="Country" />
+      <input type="text" id="regEmpCode" data-i18n-placeholder="auth.reg_emp" placeholder="Employee Code (e.g. 123456)" />
+      <input type="password" id="regPassword" data-i18n-placeholder="auth.reg_pass" placeholder="Password (> 6 chars)" />
+      <button onclick="handleRegister()" class="btn-primary" data-i18n="auth.reg_btn">Register</button>
+      <div class="auth-link" onclick="toggleAuthMode()" data-i18n="auth.has_account">Already have an account? Login here</div>
     </div>
     
     <div id="authError" class="auth-error"></div>
@@ -42,33 +43,34 @@
   <aside class="sidebar">
     <div class="sidebar-top">
       <div class="brand">UrjaKavach</div>
-      <button class="new-chat-btn" onclick="startNewChat()">+ New chat</button>
+      <button class="new-chat-btn" onclick="startNewChat()" data-i18n="sidebar.new_chat">+ New chat</button>
     </div>
 
     <div class="quick-actions">
       <button class="quick-btn agent-hub-btn" onclick="openModal('agentHubModal')">
-        <span class="qb-dot" style="background:#4ec9b0;"></span> 🤖 Agents Hub
+        <span class="qb-dot" style="background:#4ec9b0;"></span> <span data-i18n="sidebar.agents_hub">🤖 Agents Hub</span>
       </button>
       <button class="quick-btn" onclick="openModal('docModal')">
-        <span class="qb-dot" style="background:#569cd6;"></span> Document Flow
+        <span class="qb-dot" style="background:#569cd6;"></span> <span data-i18n="sidebar.doc_flow">Document Flow</span>
       </button>
       <button class="quick-btn" onclick="openModal('codeModal')">
-        <span class="qb-dot" style="background:#dcdcaa;"></span> Code Flow
+        <span class="qb-dot" style="background:#dcdcaa;"></span> <span data-i18n="sidebar.code_flow">Code Flow</span>
       </button>
     </div>
 
-    <div class="history-header">Chats</div>
+    <div class="history-header" data-i18n="sidebar.chats">Chats</div>
     <div class="history-list" id="historyList"></div>
 
     <div class="sidebar-bottom">
+      <select class="lang-select" style="margin-right:10px; background:var(--bg-secondary); color:var(--text-main); border:1px solid var(--border-light); padding:5px; border-radius:4px;"><option value="en">EN</option><option value="hi">HI</option><option value="kn">KN</option></select>
       <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()">
-        <span id="themeIcon">&#9789;</span> <span id="themeLabel">Dark mode</span>
+        <span id="themeIcon">&#9789;</span> <span id="themeLabel" data-i18n="sidebar.dark_mode">Dark mode</span>
       </button>
       <div class="user-profile">
         <div class="avatar" id="userAvatar">U</div>
         <div class="user-info">
           <div class="user-name" id="userName">User</div>
-          <div class="user-sub" id="healthLine">checking backend&hellip;</div>
+          <div class="user-sub" id="healthLine" data-i18n="sidebar.checking_backend">checking backend…</div>
         </div>
         <button onclick="openProfileModal()" class="logout-btn" title="Edit Profile" style="margin-left: 5px;">&#9998;</button>
         <button onclick="handleLogout()" class="logout-btn" title="Sign out">&#10162;</button>
@@ -79,29 +81,29 @@
   <main class="chat-main">
     <div class="chat-header">
       <div class="chat-header-left">
-        <div class="chat-title" id="chatTitle">New chat</div>
-        <div class="active-agent-pill" id="activeAgentPill" onclick="openModal('agentHubModal')" title="Click to switch or onboard domain agents">
+        <div class="chat-title" id="chatTitle" data-i18n="main.new_chat_title">New chat</div>
+        <div class="active-agent-pill" id="activeAgentPill" onclick="openModal('agentHubModal')" title="Click to switch or onboard domain agents" data-i18n-title="main.active_agent_tooltip">
           <span class="agent-icon">🤖</span>
-          <span id="activeAgentName">General Engineering Agent</span>
-          <span class="agent-change-badge">Change ▾</span>
+          <span id="activeAgentName" data-i18n="main.default_agent">General Engineering Agent</span>
+          <span class="agent-change-badge" data-i18n="main.change">Change ⚙️</span>
         </div>
       </div>
       <button class="panel-toggle" id="panelToggleBtn" onclick="toggleActivityPanel()">
-        Activity &#9656;
+        <span data-i18n="main.activity_btn">Activity ▹</span>
       </button>
     </div>
 
     <div class="chat-messages" id="chatMessages">
       <div class="empty-state" id="emptyState">
-        <h2>UrjaKavach Sovereign AI</h2>
-        <p>Unified on-premise workbench. Chat, attach any document or code, or execute scripts in an isolated sandbox.</p>
+        <h2 data-i18n="main.welcome_title">UrjaKavach Sovereign AI</h2>
+        <p data-i18n="main.welcome_desc">Unified on-premise workbench. Chat, attach any document or code, or execute scripts in an isolated sandbox.</p>
         <div class="prompt-chips">
-          <button class="chip" onclick="quickPrompt('Summarize the attached document and extract key highlights.')">&#128196; Summarize document</button>
-          <button class="chip" onclick="quickPrompt('Write a python script to calculate the moving average of pipeline pressure readings.')">&#9889; Write &amp; run Python script</button>
-          <button class="chip" onclick="quickPrompt('Please generate a PowerPoint presentation (.pptx) summarizing the key findings.')">&#128202; Generate PowerPoint (.pptx)</button>
-          <button class="chip" onclick="quickPrompt('Please structure these findings into an Excel spreadsheet (.xlsx) with status columns.')">&#128200; Export Excel sheet (.xlsx)</button>
-          <button class="chip" onclick="quickPrompt('Export this data table as a CSV dataset (.csv).')">&#128203; Export CSV (.csv)</button>
-          <button class="chip" onclick="quickPrompt('Please draft an official approval note (.docx) from the attached inspection data.')">&#128221; Draft approval note (.docx)</button>
+          <button class="chip" onclick="quickPrompt('Summarize the attached document and extract key highlights.')" data-i18n="main.prompt_1">📄 Summarize the attached document and extract key highlights.</button>
+          <button class="chip" onclick="quickPrompt('Write a python script to calculate the moving average of pipeline pressure readings.')" data-i18n="main.prompt_2">⚡ Write a python script to calculate the moving average of pipeline pressure readings.</button>
+          <button class="chip" onclick="quickPrompt('Please generate a PowerPoint presentation (.pptx) summarizing the key findings.')" data-i18n="main.prompt_3">📊 Please generate a PowerPoint presentation (.pptx) summarizing the key findings.</button>
+          <button class="chip" onclick="quickPrompt('Please structure these findings into an Excel spreadsheet (.xlsx) with status columns.')" data-i18n="main.prompt_4">📈 Please structure these findings into an Excel spreadsheet (.xlsx) with status columns.</button>
+          <button class="chip" onclick="quickPrompt('Export this data table as a CSV dataset (.csv).')" data-i18n="main.prompt_5">📋 Export this data table as a CSV dataset (.csv).</button>
+          <button class="chip" onclick="quickPrompt('Please draft an official approval note (.docx) from the attached inspection data.')" data-i18n="main.prompt_6">📝 Please draft an official approval note (.docx) from the attached inspection data.</button>
         </div>
       </div>
     </div>
@@ -113,21 +115,21 @@
                 onclick="document.getElementById('chatFileInput').click()">&#128206;</button>
         <input type="file" id="chatFileInput" multiple accept="*/*" onchange="onChatFileChosen(event)">
         <textarea id="chatInput" rows="1"
-                  placeholder="Ask anything, or describe a coding/document task…"
+                  data-i18n-placeholder="main.chat_placeholder" placeholder="Ask anything, or describe a coding/document task..."
                   onkeydown="onChatInputKeydown(event)"
                   oninput="autoResize(this)"></textarea>
-        <button class="send-btn" id="sendBtn" onclick="sendChatMessage()">Send</button>
+        <button class="send-btn" id="sendBtn" onclick="sendChatMessage()" data-i18n="main.send">Send</button>
       </div>
     </div>
   </main>
 
   <aside class="activity-panel" id="activityPanel">
     <div class="activity-header">
-      <span>Activity &mdash; audit log</span>
+      <span data-i18n="activity.title">Activity — audit log</span>
       <button class="panel-close" onclick="toggleActivityPanel()">&times;</button>
     </div>
     <div class="activity-body" id="logPanel">
-      <div class="term-line term-empty">$ waiting for a flow to run&hellip;</div>
+      <div class="term-line term-empty" data-i18n="activity.waiting">$ waiting for a flow to run…</div>
     </div>
     <div class="activity-footer">
       <div id="modelLine"></div>
@@ -140,24 +142,24 @@
 <div class="modal-overlay panel-hidden" id="docModal">
   <div class="modal">
     <div class="modal-header">
-      <span>Document Flow &mdash; Scanned Report to Approval Note</span>
+      <span data-i18n="modals.doc_flow_title">Document Flow — Scanned Report to Approval Note</span>
       <button onclick="closeModal('docModal')">&times;</button>
     </div>
     <div class="modal-body">
-      <p class="modal-desc">
+      <p class="modal-desc" data-i18n="modals.doc_flow_desc">
         OCR (Tesseract) &rarr; plant knowledge-base grounding &rarr; reasoning model
         &rarr; real .docx approval note.
       </p>
       <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
-        Click to upload document / image<br>(.png, .jpg, .jpeg)
+        <span data-i18n="modals.upload_hint">Click to upload document / image</span><br><span data-i18n="modals.upload_hint2">(.png, .jpg, .jpeg)</span>
       </div>
       <input type="file" id="fileInput" accept="image/png,image/jpeg" onchange="onFileChosen(event)">
       <img id="filePreview" class="file-preview panel-hidden" alt="uploaded preview">
       <label class="sample-toggle">
         <input type="checkbox" id="useSampleToggle" checked onchange="toggleSample()">
-        Use bundled sample instead
+        <span data-i18n="modals.use_sample">Use bundled sample instead</span>
       </label>
-      <button class="run-btn" id="runDoc" onclick="runDocFlow()">Run Document Flow</button>
+      <button class="run-btn" id="runDoc" onclick="runDocFlow()" data-i18n="modals.run_doc_flow">Run Document Flow</button>
     </div>
   </div>
 </div>
@@ -165,16 +167,16 @@
 <div class="modal-overlay panel-hidden" id="codeModal">
   <div class="modal">
     <div class="modal-header">
-      <span>Code Flow &mdash; Coding Task in Sandbox</span>
+      <span data-i18n="modals.code_flow_title">Code Flow — Coding Task in Sandbox</span>
       <button onclick="closeModal('codeModal')">&times;</button>
     </div>
     <div class="modal-body">
-      <p class="modal-desc">
+      <p class="modal-desc" data-i18n="modals.code_flow_desc">
         Routed to the code model, then executed in an isolated sandbox to verify
         it actually runs.
       </p>
-      <textarea class="prompt" id="codePrompt" rows="4">Write code to compute the average of a list of numbers</textarea>
-      <button class="run-btn" id="runCode" onclick="runCodeFlow()">Run Code Flow</button>
+      <textarea class="prompt" id="codePrompt" rows="4" data-i18n="modals.code_prompt">Write code to compute the average of a list of numbers</textarea>
+      <button class="run-btn" id="runCode" onclick="runCodeFlow()" data-i18n="modals.run_code_flow">Run Code Flow</button>
     </div>
   </div>
 </div>
@@ -182,15 +184,15 @@
 <div class="modal-overlay panel-hidden" id="profileModal">
   <div class="modal">
     <div class="modal-header">
-      <span>Edit Profile</span>
+      <span data-i18n="modals.profile_title">Edit Profile</span>
       <button onclick="closeModal('profileModal')">&times;</button>
     </div>
     <div class="modal-body">
       <div class="auth-form" style="margin-top: 10px;">
-        <input type="text" id="editName" placeholder="Full Name" />
-        <input type="text" id="editProfession" placeholder="Profession" />
-        <input type="text" id="editCountry" placeholder="Country" />
-        <button class="btn-primary" onclick="handleUpdateProfile()">Save Changes</button>
+        <input type="text" id="editName" data-i18n-placeholder="auth.reg_name" placeholder="Full Name" />
+        <input type="text" id="editProfession" data-i18n-placeholder="auth.reg_prof" placeholder="Profession" />
+        <input type="text" id="editCountry" data-i18n-placeholder="auth.reg_country" placeholder="Country" />
+        <button class="btn-primary" onclick="handleUpdateProfile()" data-i18n="modals.save_changes">Save Changes</button>
       </div>
     </div>
   </div>
@@ -199,20 +201,20 @@
 <div class="modal-overlay panel-hidden" id="agentHubModal">
   <div class="modal modal-lg">
     <div class="modal-header">
-      <span>⚡ Agent Hub &amp; Onboarder &mdash; Industrial Domain Specialists</span>
+      <span data-i18n="modals.agent_hub_title">🏭 Agent Hub & Onboarder — Industrial Domain Specialists</span>
       <button onclick="closeModal('agentHubModal')">&times;</button>
     </div>
     <div class="modal-body">
       <div class="agent-tabs">
-        <button class="agent-tab active" id="tabDiscoverBtn" onclick="switchAgentTab('discover')">🔍 Use Cases &amp; Discovery</button>
-        <button class="agent-tab" id="tabOnboardBtn" onclick="switchAgentTab('onboard')">➕ Onboard New Agent</button>
+        <button class="agent-tab active" id="tabDiscoverBtn" onclick="switchAgentTab('discover')" data-i18n="modals.tab_discover">🛠️ Use Cases & Discovery</button>
+        <button class="agent-tab" id="tabOnboardBtn" onclick="switchAgentTab('onboard')" data-i18n="modals.tab_onboard">🚀 Onboard New Agent</button>
       </div>
 
       <!-- Tab 1: Discover & Semantic Search -->
       <div id="tabDiscover" class="agent-tab-content">
         <div class="agent-search-bar">
-          <input type="text" id="agentSearchInput" placeholder="Search by intent or use case (e.g. 'heat exchanger fouling', 'piping wall thickness', 'shift handover')..." oninput="debounceAgentSearch()" />
-          <button class="btn-primary" onclick="searchAgentsAction()">Search</button>
+          <input type="text" id="agentSearchInput" data-i18n-placeholder="modals.search_placeholder" placeholder="Search by intent or use case (e.g. 'heat exchanger fouling', 'piping wall thickness', 'shift handover')..." oninput="debounceAgentSearch()" />
+          <button class="btn-primary" onclick="searchAgentsAction()" data-i18n="modals.search_btn">Search</button>
         </div>
         <div class="use-cases-chips-row" id="useCaseChipsRow">
           <!-- Dynamically filled with use case badges -->
@@ -227,50 +229,51 @@
         <form id="onboardAgentForm" onsubmit="handleOnboardSubmit(event)">
           <div class="form-row">
             <div class="form-group flex-1">
-              <label>Agent Role Name *</label>
-              <input type="text" id="newAgentName" placeholder="e.g. Crude Desalter Emulsion Specialist" required oninput="onNewAgentInfoChange()" />
+              <label data-i18n="modals.role_name">Agent Role Name *</label>
+              <input type="text" id="newAgentName" data-i18n-placeholder="modals.role_placeholder" placeholder="e.g. Crude Desalter Emulsion Specialist" required oninput="onNewAgentInfoChange()" />
             </div>
             <div class="form-group flex-1">
-              <label>Department / Plant Unit</label>
-              <input type="text" id="newAgentDept" placeholder="e.g. CDU-1 / Technical Services" />
+              <label data-i18n="modals.dept">Department / Plant Unit</label>
+              <input type="text" id="newAgentDept" data-i18n-placeholder="modals.dept_placeholder" placeholder="e.g. CDU-1 / Technical Services" />
             </div>
           </div>
 
           <div class="form-group">
-            <label>Description &amp; Operational Scope *</label>
-            <input type="text" id="newAgentDesc" placeholder="e.g. Monitors desalter water carryover, grid voltage, and rag layer thickness" required oninput="onNewAgentInfoChange()" />
+            <label data-i18n="modals.desc">Description &amp; Operational Scope *</label>
+            <input type="text" id="newAgentDesc" data-i18n-placeholder="modals.desc_placeholder" placeholder="e.g. Monitors desalter water carryover, grid voltage, and rag layer thickness" required oninput="onNewAgentInfoChange()" />
           </div>
 
           <div class="form-group">
-            <label>Use Case IDs / Tags (comma-separated) *</label>
-            <input type="text" id="newAgentUseCases" placeholder="e.g. desalter_emulsion, crude_processing, salt_in_crude" required />
-            <small class="field-hint">M:N mapping &mdash; this agent will be semantically indexed under these use case IDs.</small>
+            <label data-i18n="modals.use_cases">Use Case IDs / Tags (comma-separated) *</label>
+            <input type="text" id="newAgentUseCases" data-i18n-placeholder="modals.use_cases_placeholder" placeholder="e.g. desalter_emulsion, crude_processing, salt_in_crude" required />
+            <small class="field-hint" data-i18n="modals.use_cases_hint">M:N mapping &mdash; this agent will be semantically indexed under these use case IDs.</small>
           </div>
 
           <div class="form-group">
-            <label>System Role &amp; Prompt Definition *</label>
-            <textarea id="newAgentPrompt" rows="3" placeholder="You are an autonomous desalter specialist. Calculate water drop rate and warn on electrical grid trips." required></textarea>
+            <label data-i18n="modals.prompt_def">System Role &amp; Prompt Definition *</label>
+            <textarea id="newAgentPrompt" rows="3" data-i18n-placeholder="modals.prompt_placeholder" placeholder="You are an autonomous desalter specialist. Calculate water drop rate and warn on electrical grid trips." required></textarea>
           </div>
 
           <!-- Skill File Upload or Meta-Agent AI Draft -->
           <div class="form-group">
             <div class="skill-header-row">
-              <label>Domain Skill Specification (SKILL.md) *</label>
-              <button type="button" class="btn-ai-draft" id="btnAiDraftSkill" onclick="draftSkillWithAi()">
+              <label data-i18n="modals.skill_spec">Domain Skill Specification (SKILL.md) *</label>
+              <button type="button" class="btn-ai-draft" id="btnAiDraftSkill" onclick="draftSkillWithAi()" data-i18n="modals.ai_draft">
                 ✨ AI Draft Skill (Meta-Agent)
               </button>
             </div>
             <div class="skill-upload-row">
               <input type="file" id="skillFileInput" accept=".md,.txt" onchange="onSkillFileChosen(event)" style="display:none" />
-              <button type="button" class="btn-secondary" onclick="document.getElementById('skillFileInput').click()">📁 Upload SKILL.md / SOP File</button>
-              <span id="skillFileNameHint" class="file-hint-text">No file chosen (or write markdown below)</span>
+              <button type="button" class="btn-secondary" onclick="document.getElementById('skillFileInput').click()" data-i18n="modals.upload_skill">📄 Upload SKILL.md / SOP File</button>
+              <span id="skillFileNameHint" class="file-hint-text" data-i18n="modals.no_file">No file chosen (or write markdown below)</span>
             </div>
-            <textarea id="newAgentSkill" rows="6" placeholder="# Domain Skill Specification&#10;Enter standard operating procedures, equations, or click 'AI Draft Skill' above..." required></textarea>
+            <textarea id="newAgentSkill" rows="6" data-i18n-placeholder="modals.skill_placeholder" placeholder="# Domain Skill Specification
+Enter standard operating procedures, equations, or click 'AI Draft Skill' above..." required></textarea>
           </div>
 
           <!-- Suggested & Allowed Tools -->
           <div class="form-group">
-            <label>Permitted Tools (Select which tools this agent can execute):</label>
+            <label data-i18n="modals.tools">Permitted Tools (Select which tools this agent can execute):</label>
             <div class="tools-checklist" id="toolsChecklist">
               <!-- Dynamically populated from /api/tools with suggestions highlighted -->
             </div>
@@ -279,16 +282,16 @@
           <!-- Model Routing -->
           <div class="form-row">
             <div class="form-group flex-1">
-              <label>Primary Model Architecture</label>
+              <label data-i18n="modals.model_arch">Primary Model Architecture</label>
               <select id="newAgentModel">
-                <option value="reasoning" selected>Reasoning Model (Llama-3.2-3B / DeepSeek)</option>
-                <option value="coding">Coding Model (Qwen2.5-Coder-1.5B)</option>
+                <option value="reasoning" selected data-i18n="modals.reasoning_model">Reasoning Model (Llama-3.2-3B / DeepSeek)</option>
+                <option value="coding" data-i18n="modals.coding_model">Coding Model (Qwen2.5-Coder-1.5B)</option>
               </select>
             </div>
           </div>
 
           <div class="form-actions">
-            <button type="submit" class="btn-primary btn-lg" id="btnSubmitOnboard">🚀 Onboard &amp; Launch Agent</button>
+            <button type="submit" class="btn-primary btn-lg" id="btnSubmitOnboard" data-i18n="modals.onboard_btn">🚀 Onboard & Launch Agent</button>
           </div>
         </form>
       </div>
@@ -296,6 +299,8 @@
   </div>
 </div>
 
+<script src="locales.js"></script>
+<script src="i18n.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
