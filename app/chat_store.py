@@ -4,13 +4,37 @@ import uuid
 import time
 from . import config
 
-SESSIONS_DIR = os.path.join(config.LOGS_DIR, "sessions")
-os.makedirs(SESSIONS_DIR, exist_ok=True)
+LOGS_DIR = config.LOGS_DIR
+USERS_DIR = os.path.join(LOGS_DIR, "users")
+INDEX_FILE = os.path.join(LOGS_DIR, "session_index.json")
 
-def _get_path(session_id: str) -> str:
-    # Basic path traversal protection
+os.makedirs(USERS_DIR, exist_ok=True)
+
+def _load_index() -> dict:
+    if os.path.exists(INDEX_FILE):
+        try:
+            with open(INDEX_FILE, "r") as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return {}
+
+def _save_index(index: dict):
+    with open(INDEX_FILE, "w") as f:
+        json.dump(index, f)
+
+def _get_path(session_id: str, user_id: str = None) -> str:
     safe_id = "".join(c for c in session_id if c.isalnum() or c in "-_")
-    return os.path.join(SESSIONS_DIR, f"{safe_id}.json")
+    
+    if not user_id:
+        index = _load_index()
+        user_id = index.get(safe_id, "default")
+    
+    safe_user_id = "".join(c for c in user_id if c.isalnum() or c in "-_@.")
+    user_sessions_dir = os.path.join(USERS_DIR, safe_user_id, "sessions")
+    os.makedirs(user_sessions_dir, exist_ok=True)
+    
+    return os.path.join(user_sessions_dir, f"{safe_id}.json")
 
 def new_session(user_id: str = "default") -> str:
     session_id = str(uuid.uuid4())
@@ -25,7 +49,13 @@ def new_session(user_id: str = "default") -> str:
         "documents": [],
         "messages": []
     }
-    with open(_get_path(session_id), "w", encoding="utf-8") as f:
+    
+    # Save to index
+    index = _load_index()
+    index[session_id] = user_id
+    _save_index(index)
+    
+    with open(_get_path(session_id, user_id), "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2)
     return session_id
 
@@ -41,7 +71,8 @@ def load(session_id: str) -> dict | None:
 
 def _save(session_id: str, data: dict) -> None:
     data["updated_at"] = int(time.time())
-    with open(_get_path(session_id), "w", encoding="utf-8") as f:
+    user_id = data.get("user_id", "default")
+    with open(_get_path(session_id, user_id), "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2)
 
 def add_document_context(
@@ -51,11 +82,6 @@ def add_document_context(
     findings: list[str],
     summary: str = "",
 ) -> dict:
-    """Store or accumulate an OCR'd document and findings on the session.
-
-    Multiple documents uploaded across different prompts or turns co-exist
-    within the same session in the `documents` list.
-    """
     data = load(session_id)
     if not data:
         return {}
@@ -71,7 +97,6 @@ def add_document_context(
         "summary": summary,
         "stored_at": int(time.time()),
     }
-    # Update existing if same source_name, else append
     existing_idx = next(
         (i for i, d in enumerate(data["documents"]) if d.get("source_name") == source_name),
         -1
@@ -81,10 +106,8 @@ def add_document_context(
     else:
         data["documents"].append(doc_record)
 
-    # Legacy/convenience pointer to the most recent document
     data["document_context"] = doc_record
 
-    # Give the session a title from document if still generic
     if data.get("title") in ("New chat", None):
         import os as _os
         basename = _os.path.basename(source_name)
@@ -99,18 +122,15 @@ def set_document_context(
     findings: list[str],
     summary: str = "",
 ) -> None:
-    """Alias for add_document_context for backwards compatibility."""
     add_document_context(session_id, source_name, raw_text, findings, summary)
 
 def get_document_context(session_id: str) -> dict | None:
-    """Return the most recently stored document context for this session, or None."""
     data = load(session_id)
     if not data:
         return None
     return data.get("document_context")
 
 def get_all_documents(session_id: str) -> list[dict]:
-    """Return all documents accumulated in this session."""
     data = load(session_id)
     if not data:
         return []
@@ -131,7 +151,6 @@ def append_message(
     code_result: dict | None = None,
     doc_result: dict | None = None,
 ) -> str:
-    """Append a message to the session with optional code and document deliverables."""
     data = load(session_id)
     if not data:
         return ""
@@ -155,7 +174,6 @@ def append_message(
     }
     data["messages"].append(msg)
     
-    # Auto-generate title from first user message if it's still "New chat"
     if data.get("title") == "New chat" and role == "user":
         title_text = prompt or content
         data["title"] = (title_text[:47] + "...") if len(title_text) > 50 else title_text
@@ -165,13 +183,17 @@ def append_message(
 
 def list_sessions(user_id: str = "default") -> list[dict]:
     sessions = []
-    if not os.path.exists(SESSIONS_DIR):
+    safe_user_id = "".join(c for c in user_id if c.isalnum() or c in "-_@.")
+    user_sessions_dir = os.path.join(USERS_DIR, safe_user_id, "sessions")
+    
+    if not os.path.exists(user_sessions_dir):
         return []
-    for filename in os.listdir(SESSIONS_DIR):
+        
+    for filename in os.listdir(user_sessions_dir):
         if filename.endswith(".json"):
             session_id = filename[:-5]
             data = load(session_id)
-            if data and (data.get("user_id") == user_id or (user_id == "default" and not data.get("user_id"))):
+            if data:
                 sessions.append({
                     "id": data["id"],
                     "title": data.get("title", "Chat"),
@@ -179,7 +201,7 @@ def list_sessions(user_id: str = "default") -> list[dict]:
                     "updated_at": data.get("updated_at", data.get("created_at", 0)),
                     "has_document": data.get("document_context") is not None,
                 })
-    # Sort newest first
+                
     sessions.sort(key=lambda x: x.get("updated_at", x.get("created_at", 0)), reverse=True)
     return sessions
 
@@ -188,5 +210,9 @@ def delete_session(session_id: str) -> None:
     if os.path.exists(path):
         try:
             os.remove(path)
+            index = _load_index()
+            if session_id in index:
+                del index[session_id]
+                _save_index(index)
         except OSError:
             pass

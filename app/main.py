@@ -56,10 +56,15 @@ def register(
     profession: str = Form(...),
     country: str = Form(...),
     emp_code: str = Form(...),
-    github_id: str = Form(...)
+    github_id: str = Form(...),
+    role: str = Form("employee"),
+    is_mrpl_employee: bool = Form(True)
 ):
     try:
-        user = auth.register_user(identifier, password, name, profession, country, emp_code, github_id)
+        user = auth.register_user(
+            identifier, password, name, profession, country, 
+            emp_code, github_id, role, is_mrpl_employee
+        )
         return {"status": "ok", "user": user}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

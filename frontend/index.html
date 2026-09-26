@@ -9,51 +9,142 @@
 
 <div id="authScreen" class="auth-screen">
   <div class="auth-container">
-    <div class="auth-logo">
-      <div class="thunderbolt">&#9889;</div>
-      <select class="lang-select" style="margin-bottom:10px; background:#333; color:white; border:none; padding:5px; border-radius:4px;"><option value="en">English</option><option value="hi">हिंदी</option><option value="kn">ಕನ್ನಡ</option></select>
-    </div>
-    <h1 class="auth-title">UrjaKavach</h1>
-    
-    <div id="loginForm" class="auth-form">
-      <input type="text" id="loginId" data-i18n-placeholder="auth.login_id" placeholder="Email / Phone / GitHub ID" />
-      <input type="password" id="loginPassword" data-i18n-placeholder="auth.password" placeholder="Password" />
-      <button onclick="handleLogin()" class="btn-primary" data-i18n="auth.login_btn">Login</button>
-      <div class="auth-link" onclick="toggleAuthMode()" data-i18n="auth.no_account">If you don't have an account, register here</div>
+
+    <!-- LEFT BRAND PANEL -->
+    <div class="auth-brand-panel">
+      <div class="auth-brand-logo">⚡</div>
+      <div class="auth-brand-name">Urja Kavach</div>
+      <div class="auth-brand-sub">Enterprise AI Assistant · v1.0</div>
+      <div class="auth-brand-tagline">Secure. Private. Offline.</div>
     </div>
 
-    <div id="registerForm" class="auth-form panel-hidden">
-      <input type="text" id="regName" data-i18n-placeholder="auth.reg_name" placeholder="Full Name" />
-      <input type="text" id="regProfession" data-i18n-placeholder="auth.reg_prof" placeholder="Profession" />
-      <input type="text" id="regId" data-i18n-placeholder="auth.reg_id" placeholder="Email / Phone" />
-      <input type="text" id="regGithub" data-i18n-placeholder="auth.reg_gh" placeholder="GitHub ID" />
-      <input type="text" id="regCountry" data-i18n-placeholder="auth.reg_country" placeholder="Country" />
-      <input type="text" id="regEmpCode" data-i18n-placeholder="auth.reg_emp" placeholder="Employee Code (e.g. 123456)" />
-      <input type="password" id="regPassword" data-i18n-placeholder="auth.reg_pass" placeholder="Password (> 6 chars)" />
-      <button onclick="handleRegister()" class="btn-primary" data-i18n="auth.reg_btn">Register</button>
-      <div class="auth-link" onclick="toggleAuthMode()" data-i18n="auth.has_account">Already have an account? Login here</div>
+    <!-- RIGHT FORM PANEL -->
+    <div class="auth-form-panel">
+
+      <!-- Language selector top-right -->
+      <div class="auth-lang-row">
+        <select id="authLangSelect" onchange="if(window.loadLanguage) loadLanguage(this.value)" style="background:transparent; color:var(--text-dim); border:1px solid var(--border); padding:6px 10px; border-radius:6px; font-size:13px; cursor:pointer; outline:none;">
+          <option value="en">English</option>
+          <option value="hi">हिन्दी</option>
+          <option value="kn">ಕನ್ನಡ</option>
+        </select>
+      </div>
+
+      <!-- LOGIN FORM -->
+      <div id="loginForm" class="uk-form">
+        <h2 class="uk-form-title">Welcome back</h2>
+        <p class="uk-form-sub">Sign in to your Urja Kavach account</p>
+
+        <!-- Role tabs -->
+        <div class="uk-role-tabs" id="loginRoleTabs">
+          <button class="uk-role-tab active" onclick="setLoginRole(this, 'employee')">Employee</button>
+          <button class="uk-role-tab" onclick="setLoginRole(this, 'supervisor')">Supervisor</button>
+          <button class="uk-role-tab" onclick="setLoginRole(this, 'admin')">Admin</button>
+        </div>
+
+        <div class="uk-field-group">
+          <label class="uk-label">Username or Email</label>
+          <input type="text" id="loginId" class="uk-input" placeholder="Enter your ID or email" autocomplete="username" />
+        </div>
+        <div class="uk-field-group">
+          <label class="uk-label">Password</label>
+          <input type="password" id="loginPassword" class="uk-input" placeholder="Enter your password" autocomplete="current-password" />
+        </div>
+
+        <button class="uk-btn-primary" onclick="handleLogin()">Sign in</button>
+        <p class="uk-switch-link">Don't have an account? <span onclick="toggleAuthMode()">Register here</span></p>
+      </div>
+
+      <!-- REGISTER FORM -->
+      <div id="registerForm" class="uk-form panel-hidden">
+        <h2 class="uk-form-title">Create account</h2>
+        <p class="uk-form-sub">Fill in your details to get started</p>
+
+        <div class="uk-field-row">
+          <div class="uk-field-group">
+            <label class="uk-label">Full Name *</label>
+            <input type="text" id="regName" class="uk-input" placeholder="Your full name" />
+          </div>
+          <div class="uk-field-group">
+            <label class="uk-label">Profession</label>
+            <input type="text" id="regProfession" class="uk-input" placeholder="e.g. Engineer" />
+          </div>
+        </div>
+
+        <!-- MRPL Toggle -->
+        <div class="uk-org-toggle">
+          <label class="uk-toggle-label">
+            <input type="checkbox" id="regIsMrpl" checked onchange="toggleMrplInput()" />
+            <span class="uk-toggle-text">I am an MRPL employee</span>
+          </label>
+        </div>
+
+        <div class="uk-field-group">
+          <label class="uk-label" id="regIdLabel">Employee Username *</label>
+          <div class="uk-email-row" id="emailGroup">
+            <input type="text" id="regId" class="uk-input uk-input-flex" placeholder="username" />
+            <span class="uk-email-suffix" id="mrplSuffix">@mrpl.in</span>
+          </div>
+        </div>
+
+        <div class="uk-field-row">
+          <div class="uk-field-group">
+            <label class="uk-label">Role *</label>
+            <select id="regRole" class="uk-input">
+              <option value="employee">Employee</option>
+              <option value="supervisor">Supervisor</option>
+              <option value="admin">Administrator</option>
+            </select>
+          </div>
+          <div class="uk-field-group">
+            <label class="uk-label">Employee Code *</label>
+            <input type="text" id="regEmpCode" class="uk-input" placeholder="e.g. 123456" />
+          </div>
+        </div>
+
+        <div class="uk-field-row">
+          <div class="uk-field-group">
+            <label class="uk-label">Country</label>
+            <input type="text" id="regCountry" class="uk-input" placeholder="India" />
+          </div>
+          <div class="uk-field-group">
+            <label class="uk-label">GitHub ID</label>
+            <input type="text" id="regGithub" class="uk-input" placeholder="github_username" />
+          </div>
+        </div>
+
+        <div class="uk-field-group">
+          <label class="uk-label">Password *</label>
+          <input type="password" id="regPassword" class="uk-input" placeholder="At least 6 characters" autocomplete="new-password" />
+        </div>
+
+        <button class="uk-btn-primary" onclick="handleRegister()">Create Account</button>
+        <p class="uk-switch-link">Already have an account? <span onclick="toggleAuthMode()">Sign in</span></p>
+      </div>
+
+      <div id="authError" class="uk-auth-error"></div>
     </div>
-    
-    <div id="authError" class="auth-error"></div>
+
   </div>
 </div>
+
 
 <div class="app panel-hidden" id="mainApp">
 
   <aside class="sidebar">
     <div class="sidebar-top">
-      <div class="brand">UrjaKavach</div>
+      <div class="brand">Urja Kavach <span style="font-size: 11px; color: var(--text-dim); font-weight: normal;">v1.0</span></div>
       <button class="new-chat-btn" onclick="startNewChat()" data-i18n="sidebar.new_chat">+ New chat</button>
     </div>
 
     <div class="quick-actions">
-      <button class="quick-btn agent-hub-btn" onclick="openModal('agentHubModal')">
+      <button class="quick-btn agent-hub-btn" onclick="openModal('agentHubModal')" id="btnAgentHub">
         <span class="qb-dot" style="background:#4ec9b0;"></span> <span data-i18n="sidebar.agents_hub">🤖 Agents Hub</span>
       </button>
-      <button class="quick-btn" onclick="openModal('docModal')">
+      <button class="quick-btn" onclick="openModal('docModal')" id="btnDocFlow">
         <span class="qb-dot" style="background:#569cd6;"></span> <span data-i18n="sidebar.doc_flow">Document Flow</span>
       </button>
-      <button class="quick-btn" onclick="openModal('codeModal')">
+      <button class="quick-btn" onclick="openModal('codeModal')" id="btnCodeFlow">
         <span class="qb-dot" style="background:#dcdcaa;"></span> <span data-i18n="sidebar.code_flow">Code Flow</span>
       </button>
     </div>
@@ -62,18 +153,34 @@
     <div class="history-list" id="historyList"></div>
 
     <div class="sidebar-bottom">
-      <select class="lang-select" style="margin-right:10px; background:var(--bg-secondary); color:var(--text-main); border:1px solid var(--border-light); padding:5px; border-radius:4px;"><option value="en">EN</option><option value="hi">HI</option><option value="kn">KN</option></select>
-      <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()">
-        <span id="themeIcon">&#9789;</span> <span id="themeLabel" data-i18n="sidebar.dark_mode">Dark mode</span>
-      </button>
-      <div class="user-profile">
+      <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+        <select class="lang-select" style="background:var(--bg-input); color:var(--text); border:1px solid var(--border); padding:5px; border-radius:4px; font-size: 12px;"><option value="en">English</option><option value="hi">हिन्दी</option><option value="kn">ಕನ್ನಡ</option></select>
+        <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" style="background: none; border: none; color: var(--text); cursor: pointer;">
+          <span id="themeIcon">&#9789;</span>
+        </button>
+      </div>
+      <div class="user-profile" onclick="toggleProfileMenu(event)" style="cursor: pointer; position: relative;">
         <div class="avatar" id="userAvatar">U</div>
         <div class="user-info">
           <div class="user-name" id="userName">User</div>
-          <div class="user-sub" id="healthLine" data-i18n="sidebar.checking_backend">checking backend…</div>
+          <div class="user-sub" style="color: var(--accent); font-weight: 500;" id="userRole">Employee</div>
         </div>
-        <button onclick="openProfileModal()" class="logout-btn" title="Edit Profile" style="margin-left: 5px;">&#9998;</button>
-        <button onclick="handleLogout()" class="logout-btn" title="Sign out">&#10162;</button>
+        <div style="margin-left: auto; color: var(--text-dim);">&#8942;</div>
+        
+        <!-- Popup Menu -->
+        <div id="profileMenu" class="profile-menu panel-hidden">
+          <div class="profile-menu-header">
+            <div class="pm-name" id="pmName">User</div>
+            <div class="pm-email" id="pmEmail">user@example.com</div>
+            <div class="pm-role" id="pmRole">Employee</div>
+          </div>
+          <div class="profile-menu-items">
+            <div class="pm-item" onclick="openProfileModal()">⚙️ Settings</div>
+            <div class="pm-item" onclick="alert('Preferred language can be set from top right menu.')">🌐 Language</div>
+            <div class="pm-separator"></div>
+            <div class="pm-item pm-logout" onclick="handleLogout()">🚪 Sign out</div>
+          </div>
+        </div>
       </div>
     </div>
   </aside>
@@ -94,16 +201,49 @@
     </div>
 
     <div class="chat-messages" id="chatMessages">
-      <div class="empty-state" id="emptyState">
-        <h2 data-i18n="main.welcome_title">UrjaKavach Sovereign AI</h2>
-        <p data-i18n="main.welcome_desc">Unified on-premise workbench. Chat, attach any document or code, or execute scripts in an isolated sandbox.</p>
-        <div class="prompt-chips">
-          <button class="chip" onclick="quickPrompt('Summarize the attached document and extract key highlights.')" data-i18n="main.prompt_1">📄 Summarize the attached document and extract key highlights.</button>
-          <button class="chip" onclick="quickPrompt('Write a python script to calculate the moving average of pipeline pressure readings.')" data-i18n="main.prompt_2">⚡ Write a python script to calculate the moving average of pipeline pressure readings.</button>
-          <button class="chip" onclick="quickPrompt('Please generate a PowerPoint presentation (.pptx) summarizing the key findings.')" data-i18n="main.prompt_3">📊 Please generate a PowerPoint presentation (.pptx) summarizing the key findings.</button>
-          <button class="chip" onclick="quickPrompt('Please structure these findings into an Excel spreadsheet (.xlsx) with status columns.')" data-i18n="main.prompt_4">📈 Please structure these findings into an Excel spreadsheet (.xlsx) with status columns.</button>
-          <button class="chip" onclick="quickPrompt('Export this data table as a CSV dataset (.csv).')" data-i18n="main.prompt_5">📋 Export this data table as a CSV dataset (.csv).</button>
-          <button class="chip" onclick="quickPrompt('Please draft an official approval note (.docx) from the attached inspection data.')" data-i18n="main.prompt_6">📝 Please draft an official approval note (.docx) from the attached inspection data.</button>
+      <div class="empty-state" id="emptyState" style="text-align: center; max-width: 700px; margin: 40px auto; padding: 20px;">
+        <div style="font-size: 48px; margin-bottom: 15px; color: var(--accent);">⚡</div>
+        <h2 data-i18n="main.welcome_title" style="font-size: 28px; font-weight: 600; color: var(--text); margin-bottom: 10px;">Welcome to Urja Kavach</h2>
+        <p data-i18n="main.welcome_desc" style="color: var(--text-dim); font-size: 16px; margin-bottom: 30px; line-height: 1.5;">Your enterprise AI assistant for intelligent work, information and productivity.</p>
+        
+        <h3 style="font-size: 16px; color: var(--text); margin-bottom: 15px; font-weight: 500;">How can I help you?</h3>
+        
+        <div class="suggestion-cards" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; text-align: left;">
+          
+          <div class="suggestion-card" onclick="quickPrompt('Create a presentation from this information.')" style="background: var(--bg-input); border: 1px solid var(--border); padding: 15px; border-radius: 8px; cursor: pointer; transition: all 0.2s;">
+            <div style="font-weight: 600; font-size: 14px; margin-bottom: 5px; color: var(--accent);">Create</div>
+            <div style="font-size: 13px; color: var(--text-dim);">Create a presentation from this information</div>
+          </div>
+
+          <div class="suggestion-card" onclick="quickPrompt('Analyze this report and highlight the important points.')" style="background: var(--bg-input); border: 1px solid var(--border); padding: 15px; border-radius: 8px; cursor: pointer; transition: all 0.2s;">
+            <div style="font-weight: 600; font-size: 14px; margin-bottom: 5px; color: var(--accent);">Analyze</div>
+            <div style="font-size: 13px; color: var(--text-dim);">Analyze this report and highlight the important points</div>
+          </div>
+
+          <div class="suggestion-card" onclick="quickPrompt('Summarize this document.')" style="background: var(--bg-input); border: 1px solid var(--border); padding: 15px; border-radius: 8px; cursor: pointer; transition: all 0.2s;">
+            <div style="font-weight: 600; font-size: 14px; margin-bottom: 5px; color: var(--accent);">Summarize</div>
+            <div style="font-size: 13px; color: var(--text-dim);">Summarize this document</div>
+          </div>
+
+          <div class="suggestion-card" onclick="quickPrompt('Draft a professional email.')" style="background: var(--bg-input); border: 1px solid var(--border); padding: 15px; border-radius: 8px; cursor: pointer; transition: all 0.2s;">
+            <div style="font-weight: 600; font-size: 14px; margin-bottom: 5px; color: var(--accent);">Write</div>
+            <div style="font-size: 13px; color: var(--text-dim);">Draft a professional email</div>
+          </div>
+
+          <div class="suggestion-card" onclick="quickPrompt('Explain this technical concept simply.')" style="background: var(--bg-input); border: 1px solid var(--border); padding: 15px; border-radius: 8px; cursor: pointer; transition: all 0.2s;">
+            <div style="font-weight: 600; font-size: 14px; margin-bottom: 5px; color: var(--accent);">Explain</div>
+            <div style="font-size: 13px; color: var(--text-dim);">Explain this technical concept simply</div>
+          </div>
+
+          <div class="suggestion-card" onclick="quickPrompt('Ask a question about available enterprise information.')" style="background: var(--bg-input); border: 1px solid var(--border); padding: 15px; border-radius: 8px; cursor: pointer; transition: all 0.2s;">
+            <div style="font-weight: 600; font-size: 14px; margin-bottom: 5px; color: var(--accent);">Ask Urja Kavach</div>
+            <div style="font-size: 13px; color: var(--text-dim);">Ask a question about available enterprise info</div>
+          </div>
+          
+        </div>
+        
+        <div style="margin-top: 30px; font-size: 13px; color: var(--text-dim); font-style: italic;">
+          💡 You can ask Urja Kavach to summarize documents, analyze information, draft content, explain concepts, or help you work with available enterprise knowledge.
         </div>
       </div>
     </div>
