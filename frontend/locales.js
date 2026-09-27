@@ -14,7 +14,29 @@ window.LOCALES = {
       "reg_emp": "Employee Code (e.g. 123456)",
       "reg_pass": "Password (> 6 chars)",
       "reg_btn": "Register",
-      "has_account": "Already have an account? Login here"
+      "has_account": "Already have an account? Login here",
+      "welcome": "Welcome back",
+      "sign_in_sub": "Sign in to your Urja Kavach account",
+      "employee": "Employee",
+      "supervisor": "Supervisor",
+      "admin": "Admin",
+      "username_email": "Username or Email",
+      "sign_in": "Sign In",
+      "new_account": "New to Urja Kavach? <span onclick='toggleAuthMode()'>Create an account</span>",
+      "create_account": "Create Account",
+      "join_workspace": "Join the enterprise AI workspace",
+      "full_name": "Full Name *",
+      "profession": "Profession",
+      "iam_mrpl": "I am an MRPL employee",
+      "emp_username": "Employee Username *",
+      "role": "Role *",
+      "emp_code": "Employee Code *",
+      "country": "Country",
+      "github_id": "GitHub ID",
+      "password_req": "Password *",
+      "create_btn": "Create Account",
+      "already_have": "Already have an account? <span onclick='toggleAuthMode()'>Sign in</span>",
+      "email_address": "Email Address *"
     },
     "sidebar": {
       "new_chat": "+ New chat",
@@ -109,6 +131,19 @@ window.LOCALES = {
       "now_active": "'! It is now active in your chat session.",
       "onboarding_failed": "Onboarding failed: ",
       "chat": "Chat"
+    },
+    "suggestions": {
+      "analyze": "Analyze",
+      "analyze_desc": "Analyze this report and highlight the important points",
+      "summarize": "Summarize",
+      "summarize_desc": "Summarize this document",
+      "write": "Write",
+      "write_desc": "Draft a professional email",
+      "explain": "Explain",
+      "explain_desc": "Explain this technical concept simply",
+      "ask": "Ask Urja Kavach",
+      "ask_desc": "Ask a question about available enterprise info",
+      "footer_hint": "💡 You can ask Urja Kavach to summarize documents, analyze information, draft content, explain concepts, or help you work with available enterprise knowledge."
     }
   },
   "hi": {
@@ -126,7 +161,29 @@ window.LOCALES = {
       "reg_emp": "कर्मचारी कोड (उदा. 123456)",
       "reg_pass": "पासवर्ड (> 6 वर्ण)",
       "reg_btn": "रजिस्टर करें",
-      "has_account": "क्या आपके पास पहले से खाता है? यहां लॉग इन करें"
+      "has_account": "क्या आपके पास पहले से खाता है? यहां लॉग इन करें",
+      "welcome": "वापसी पर स्वागत है",
+      "sign_in_sub": "अपने ऊर्जा कवच खाते में साइन इन करें",
+      "employee": "कर्मचारी",
+      "supervisor": "पर्यवेक्षक",
+      "admin": "व्यवस्थापक (Admin)",
+      "username_email": "उपयोगकर्ता नाम या ईमेल",
+      "sign_in": "साइन इन करें",
+      "new_account": "ऊर्जा कवच पर नए हैं? <span onclick='toggleAuthMode()'>खाता बनाएं</span>",
+      "create_account": "खाता बनाएं",
+      "join_workspace": "एंटरप्राइज़ AI वर्कस्पेस से जुड़ें",
+      "full_name": "पूरा नाम *",
+      "profession": "पेशा",
+      "iam_mrpl": "मैं MRPL का कर्मचारी हूँ",
+      "emp_username": "कर्मचारी उपयोगकर्ता नाम *",
+      "role": "भूमिका (Role) *",
+      "emp_code": "कर्मचारी कोड *",
+      "country": "देश",
+      "github_id": "गिटहब आईडी",
+      "password_req": "पासवर्ड *",
+      "create_btn": "खाता बनाएं",
+      "already_have": "क्या आपके पास पहले से खाता है? <span onclick='toggleAuthMode()'>साइन इन करें</span>",
+      "email_address": "ईमेल पता *"
     },
     "sidebar": {
       "new_chat": "+ नई चैट",
@@ -221,13 +278,26 @@ window.LOCALES = {
       "now_active": "' को ऑनबोर्ड किया गया! अब यह आपके चैट सत्र में सक्रिय है।",
       "onboarding_failed": "ऑनबोर्डिंग विफल: ",
       "chat": "चैट"
+    },
+    "suggestions": {
+      "analyze": "विश्लेषण करें",
+      "analyze_desc": "इस रिपोर्ट का विश्लेषण करें और महत्वपूर्ण बिंदुओं को उजागर करें",
+      "summarize": "संक्षेप करें",
+      "summarize_desc": "इस दस्तावेज़ का संक्षेप करें",
+      "write": "लिखें",
+      "write_desc": "एक पेशेवर ईमेल का ड्राफ्ट तैयार करें",
+      "explain": "समझाएं",
+      "explain_desc": "इस तकनीकी अवधारणा को सरलता से समझाएं",
+      "ask": "ऊर्जा कवच से पूछें",
+      "ask_desc": "उपलब्ध एंटरप्राइज़ जानकारी के बारे में कोई प्रश्न पूछें",
+      "footer_hint": "💡 आप ऊर्जा कवच से दस्तावेज़ों का संक्षेप करने, जानकारी का विश्लेषण करने, सामग्री तैयार करने, अवधारणाओं को समझाने, या उपलब्ध एंटरप्राइज़ ज्ञान के साथ काम करने में मदद मांग सकते हैं।"
     }
   },
   "kn": {
     "title": "ಊರ್ಜಾಕವಚ — ಸಾರ್ವಭೌಮ AI ಕಾರ್ಯಕ್ಷೇತ್ರ",
     "auth": {
       "login_id": "ಇಮೇಲ್ / ಫೋನ್ / ಗಿಟ್‌ಹಬ್ ID",
-      "password": "ಪಾಸ್‌ವರ್ಡ್",
+      "password": "ಪಾಸ್ವರ್ಡ್",
       "login_btn": "ಲಾಗಿನ್",
       "no_account": "ನಿಮಗೆ ಖಾತೆ ಇಲ್ಲದಿದ್ದರೆ, ಇಲ್ಲಿ ನೋಂದಾಯಿಸಿ",
       "reg_name": "ಪೂರ್ಣ ಹೆಸರು",
@@ -238,7 +308,29 @@ window.LOCALES = {
       "reg_emp": "ಉದ್ಯೋಗಿ ಕೋಡ್ (ಉದಾ. 123456)",
       "reg_pass": "ಪಾಸ್‌ವರ್ಡ್ (> 6 ಅಕ್ಷರಗಳು)",
       "reg_btn": "ನೋಂದಾಯಿಸಿ",
-      "has_account": "ಈಗಾಗಲೇ ಖಾತೆ ಹೊಂದಿದ್ದೀರಾ? ಇಲ್ಲಿ ಲಾಗಿನ್ ಮಾಡಿ"
+      "has_account": "ಈಗಾಗಲೇ ಖಾತೆ ಹೊಂದಿದ್ದೀರಾ? ಇಲ್ಲಿ ಲಾಗಿನ್ ಮಾಡಿ",
+      "welcome": "ಮತ್ತೆ ಸ್ವಾಗತ",
+      "sign_in_sub": "ನಿಮ್ಮ ಊರ್ಜಾ ಕವಚ್ ಖಾತೆಗೆ ಸೈನ್ ಇನ್ ಮಾಡಿ",
+      "employee": "ಉದ್ಯೋಗಿ",
+      "supervisor": "ಮೇಲ್ವಿಚಾರಕ",
+      "admin": "ನಿರ್ವಾಹಕ (Admin)",
+      "username_email": "ಬಳಕೆದಾರ ಹೆಸರು ಅಥವಾ ಇಮೇಲ್",
+      "sign_in": "ಸೈನ್ ಇನ್ ಮಾಡಿ",
+      "new_account": "ಊರ್ಜಾ ಕವಚ್‌ಗೆ ಹೊಸಬರೇ? <span onclick='toggleAuthMode()'>ಖಾತೆಯನ್ನು ರಚಿಸಿ</span>",
+      "create_account": "ಖಾತೆ ರಚಿಸಿ",
+      "join_workspace": "ಎಂಟರ್‌ಪ್ರೈಸ್ AI ವರ್ಕ್‌ಸ್ಪೇಸ್‌ಗೆ ಸೇರಿ",
+      "full_name": "ಪೂರ್ಣ ಹೆಸರು *",
+      "profession": "ವೃತ್ತಿ",
+      "iam_mrpl": "ನಾನು MRPL ಉದ್ಯೋಗಿ",
+      "emp_username": "ಉದ್ಯೋಗಿ ಬಳಕೆದಾರ ಹೆಸರು *",
+      "role": "ಪಾತ್ರ (Role) *",
+      "emp_code": "ಉದ್ಯೋಗಿ ಕೋಡ್ *",
+      "country": "ದೇಶ",
+      "github_id": "ಗಿಟ್‌ಹಬ್ ಐಡಿ (GitHub ID)",
+      "password_req": "ಪಾಸ್ವರ್ಡ್ *",
+      "create_btn": "ಖಾತೆ ರಚಿಸಿ",
+      "already_have": "ಈಗಾಗಲೇ ಖಾತೆ ಹೊಂದಿರುವಿರಾ? <span onclick='toggleAuthMode()'>ಸೈನ್ ಇನ್ ಮಾಡಿ</span>",
+      "email_address": "ಇಮೇಲ್ ವಿಳಾಸ *"
     },
     "sidebar": {
       "new_chat": "+ ಹೊಸ ಚಾಟ್",
@@ -333,6 +425,19 @@ window.LOCALES = {
       "now_active": "'! ಇದು ಈಗ ನಿಮ್ಮ ಚಾಟ್ ಸೆಷನ್‌ನಲ್ಲಿ ಸಕ್ರಿಯವಾಗಿದೆ.",
       "onboarding_failed": "ಆನ್‌ಬೋರ್ಡಿಂಗ್ ವಿಫಲವಾಗಿದೆ: ",
       "chat": "ಚಾಟ್"
+    },
+    "suggestions": {
+      "analyze": "ವಿಶ್ಲೇಷಿಸಿ",
+      "analyze_desc": "ಈ ವರದಿಯನ್ನು ವಿಶ್ಲೇಷಿಸಿ ಮತ್ತು ಪ್ರಮುಖ ಅಂಶಗಳನ್ನು ಹೈಲೈಟ್ ಮಾಡಿ",
+      "summarize": "ಸಾರಾಂಶಗೊಳಿಸಿ",
+      "summarize_desc": "ಈ ದಾಖಲೆಯನ್ನು ಸಾರಾಂಶಗೊಳಿಸಿ",
+      "write": "ಬರೆಯಿರಿ",
+      "write_desc": "ವೃತ್ತಿಪರ ಇಮೇಲ್ ಅನ್ನು ಡ್ರಾಫ್ಟ್ ಮಾಡಿ",
+      "explain": "ವಿವರಿಸಿ",
+      "explain_desc": "ಈ ತಾಂತ್ರಿಕ ಪರಿಕಲ್ಪನೆಯನ್ನು ಸರಳವಾಗಿ ವಿವರಿಸಿ",
+      "ask": "ಊರ್ಜಾ ಕವಚ್ ಅನ್ನು ಕೇಳಿ",
+      "ask_desc": "ಲಭ್ಯವಿರುವ ಎಂಟರ್‌ಪ್ರೈಸ್ ಮಾಹಿತಿಯ ಬಗ್ಗೆ ಪ್ರಶ್ನೆ ಕೇಳಿ",
+      "footer_hint": "💡 ದಾಖಲೆಗಳನ್ನು ಸಾರಾಂಶಗೊಳಿಸಲು, ಮಾಹಿತಿಯನ್ನು ವಿಶ್ಲೇಷಿಸಲು, ಕಂಟೆಂಟ್ ರಚಿಸಲು, ಪರಿಕಲ್ಪನೆಗಳನ್ನು ವಿವರಿಸಲು ಅಥವಾ ಲಭ್ಯವಿರುವ ಎಂಟರ್‌ಪ್ರೈಸ್ ಜ್ಞಾನದೊಂದಿಗೆ ಕೆಲಸ ಮಾಡಲು ನೀವು ಊರ್ಜಾ ಕವಚ್ ಸಹಾಯವನ್ನು ಪಡೆಯಬಹುದು."
     }
   }
 };

@@ -110,41 +110,41 @@
 
         <!-- LOGIN FORM -->
         <div id="loginForm" class="uk-form">
-          <h2 class="uk-form-title">Welcome back</h2>
-          <p class="uk-form-sub">Sign in to your Urja Kavach account</p>
+          <h2 class="uk-form-title" data-i18n="auth.welcome">Welcome back</h2>
+          <p class="uk-form-sub" data-i18n="auth.sign_in_sub">Sign in to your Urja Kavach account</p>
 
           <!-- Role tabs -->
           <div class="uk-role-tabs" id="loginRoleTabs">
-            <button class="uk-role-tab active" onclick="setLoginRole(this, 'employee')">Employee</button>
-            <button class="uk-role-tab" onclick="setLoginRole(this, 'supervisor')">Supervisor</button>
-            <button class="uk-role-tab" onclick="setLoginRole(this, 'admin')">Admin</button>
+            <button class="uk-role-tab active" onclick="setLoginRole(this, 'employee')" data-i18n="auth.employee">Employee</button>
+            <button class="uk-role-tab" onclick="setLoginRole(this, 'supervisor')" data-i18n="auth.supervisor">Supervisor</button>
+            <button class="uk-role-tab" onclick="setLoginRole(this, 'admin')" data-i18n="auth.admin">Admin</button>
           </div>
 
           <div class="uk-field-group">
-            <label class="uk-label">Username or Email</label>
+            <label class="uk-label" data-i18n="auth.username_email">Username or Email</label>
             <input type="text" id="loginId" class="uk-input" placeholder="Enter your ID or email" autocomplete="username" />
           </div>
           <div class="uk-field-group">
-            <label class="uk-label">Password</label>
+            <label class="uk-label" data-i18n="auth.password">Password</label>
             <input type="password" id="loginPassword" class="uk-input" placeholder="Enter your password" autocomplete="current-password" />
           </div>
           
-          <button class="uk-btn-primary" onclick="handleLogin()">Sign In</button>
-          <p class="uk-switch-link">New to Urja Kavach? <span onclick="toggleAuthMode()">Create an account</span></p>
+          <button class="uk-btn-primary" onclick="handleLogin()" data-i18n="auth.sign_in">Sign In</button>
+          <p class="uk-switch-link" data-i18n="auth.new_account" data-i18n-html="true">New to Urja Kavach? <span onclick="toggleAuthMode()">Create an account</span></p>
         </div>
 
         <!-- REGISTER FORM -->
         <div id="registerForm" class="uk-form panel-hidden">
-          <h2 class="uk-form-title">Create Account</h2>
-          <p class="uk-form-sub">Join the enterprise AI workspace</p>
+          <h2 class="uk-form-title" data-i18n="auth.create_account">Create Account</h2>
+          <p class="uk-form-sub" data-i18n="auth.join_workspace">Join the enterprise AI workspace</p>
 
           <div class="uk-field-row">
             <div class="uk-field-group">
-              <label class="uk-label">Full Name *</label>
+              <label class="uk-label" data-i18n="auth.full_name">Full Name *</label>
               <input type="text" id="regName" class="uk-input" placeholder="Your full name" />
             </div>
             <div class="uk-field-group">
-              <label class="uk-label">Profession</label>
+              <label class="uk-label" data-i18n="auth.profession">Profession</label>
               <input type="text" id="regProfession" class="uk-input" placeholder="e.g. Engineer" />
             </div>
           </div>
@@ -153,12 +153,12 @@
           <div class="uk-org-toggle">
             <label class="uk-toggle-label">
               <input type="checkbox" id="regIsMrpl" checked onchange="toggleMrplInput()" />
-              <span class="uk-toggle-text">I am an MRPL employee</span>
+              <span class="uk-toggle-text" data-i18n="auth.iam_mrpl">I am an MRPL employee</span>
             </label>
           </div>
 
           <div class="uk-field-group">
-            <label class="uk-label" id="regIdLabel">Employee Username *</label>
+            <label class="uk-label" id="regIdLabel" data-i18n="auth.emp_username">Employee Username *</label>
             <div class="uk-email-row" id="emailGroup">
               <input type="text" id="regId" class="uk-input uk-input-flex" placeholder="username" />
               <span class="uk-email-suffix" id="mrplSuffix">@mrpl.in</span>
@@ -167,37 +167,37 @@
 
           <div class="uk-field-row">
             <div class="uk-field-group">
-              <label class="uk-label">Role *</label>
+              <label class="uk-label" data-i18n="auth.role">Role *</label>
               <select id="regRole" class="uk-input">
-                <option value="employee">Employee</option>
-                <option value="supervisor">Supervisor</option>
-                <option value="admin">Administrator</option>
+                <option value="employee" data-i18n="auth.employee">Employee</option>
+                <option value="supervisor" data-i18n="auth.supervisor">Supervisor</option>
+                <option value="admin" data-i18n="auth.admin">Administrator</option>
               </select>
             </div>
             <div class="uk-field-group">
-              <label class="uk-label">Employee Code *</label>
+              <label class="uk-label" data-i18n="auth.emp_code">Employee Code *</label>
               <input type="text" id="regEmpCode" class="uk-input" placeholder="e.g. 123456" />
             </div>
           </div>
 
           <div class="uk-field-row">
             <div class="uk-field-group">
-              <label class="uk-label">Country</label>
+              <label class="uk-label" data-i18n="auth.country">Country</label>
               <input type="text" id="regCountry" class="uk-input" placeholder="India" />
             </div>
             <div class="uk-field-group">
-              <label class="uk-label">GitHub ID</label>
+              <label class="uk-label" data-i18n="auth.github_id">GitHub ID</label>
               <input type="text" id="regGithub" class="uk-input" placeholder="github_username" />
             </div>
           </div>
 
           <div class="uk-field-group">
-            <label class="uk-label">Password *</label>
+            <label class="uk-label" data-i18n="auth.password_req">Password *</label>
             <input type="password" id="regPassword" class="uk-input" placeholder="At least 6 characters" autocomplete="new-password" />
           </div>
 
-          <button class="uk-btn-primary" onclick="handleRegister()">Create Account</button>
-          <p class="uk-switch-link">Already have an account? <span onclick="toggleAuthMode()">Sign in</span></p>
+          <button class="uk-btn-primary" onclick="handleRegister()" data-i18n="auth.create_btn">Create Account</button>
+          <p class="uk-switch-link" data-i18n="auth.already_have" data-i18n-html="true">Already have an account? <span onclick="toggleAuthMode()">Sign in</span></p>
         </div>
 
         <div id="authError" class="uk-auth-error"></div>
@@ -211,6 +211,7 @@
   <aside class="sidebar">
     <div class="sidebar-top">
       <div class="brand">Urja Kavach <span style="font-size: 11px; color: var(--text-dim); font-weight: normal;">v1.0</span></div>
+      <button class="sidebar-toggle-btn" onclick="toggleSidebar()" title="Collapse Sidebar">&#9776;</button>
       <button class="new-chat-btn" onclick="startNewChat()" data-i18n="sidebar.new_chat">+ New chat</button>
     </div>
 
@@ -263,6 +264,7 @@
 
   <main class="chat-main">
     <div class="chat-header">
+      <button class="sidebar-open-btn panel-hidden" onclick="toggleSidebar()" title="Open Sidebar" id="openSidebarBtn">&#9776;</button>
       <div class="chat-header-left">
         <div class="chat-title" id="chatTitle" data-i18n="main.new_chat_title">New chat</div>
         <div class="active-agent-pill" id="activeAgentPill" onclick="openModal('agentHubModal')" title="Click to switch or onboard domain agents" data-i18n-title="main.active_agent_tooltip">
@@ -292,34 +294,34 @@
           </div>
 
           <div class="suggestion-card" onclick="quickPrompt('Analyze this report and highlight the important points.')" style="background: var(--bg-input); border: 1px solid var(--border); padding: 15px; border-radius: 8px; cursor: pointer; transition: all 0.2s;">
-            <div style="font-weight: 600; font-size: 14px; margin-bottom: 5px; color: var(--accent);">Analyze</div>
-            <div style="font-size: 13px; color: var(--text-dim);">Analyze this report and highlight the important points</div>
+            <div style="font-weight: 600; font-size: 14px; margin-bottom: 5px; color: var(--accent);" data-i18n="suggestions.analyze">Analyze</div>
+            <div style="font-size: 13px; color: var(--text-dim);" data-i18n="suggestions.analyze_desc">Analyze this report and highlight the important points</div>
           </div>
 
           <div class="suggestion-card" onclick="quickPrompt('Summarize this document.')" style="background: var(--bg-input); border: 1px solid var(--border); padding: 15px; border-radius: 8px; cursor: pointer; transition: all 0.2s;">
-            <div style="font-weight: 600; font-size: 14px; margin-bottom: 5px; color: var(--accent);">Summarize</div>
-            <div style="font-size: 13px; color: var(--text-dim);">Summarize this document</div>
+            <div style="font-weight: 600; font-size: 14px; margin-bottom: 5px; color: var(--accent);" data-i18n="suggestions.summarize">Summarize</div>
+            <div style="font-size: 13px; color: var(--text-dim);" data-i18n="suggestions.summarize_desc">Summarize this document</div>
           </div>
 
           <div class="suggestion-card" onclick="quickPrompt('Draft a professional email.')" style="background: var(--bg-input); border: 1px solid var(--border); padding: 15px; border-radius: 8px; cursor: pointer; transition: all 0.2s;">
-            <div style="font-weight: 600; font-size: 14px; margin-bottom: 5px; color: var(--accent);">Write</div>
-            <div style="font-size: 13px; color: var(--text-dim);">Draft a professional email</div>
+            <div style="font-weight: 600; font-size: 14px; margin-bottom: 5px; color: var(--accent);" data-i18n="suggestions.write">Write</div>
+            <div style="font-size: 13px; color: var(--text-dim);" data-i18n="suggestions.write_desc">Draft a professional email</div>
           </div>
 
           <div class="suggestion-card" onclick="quickPrompt('Explain this technical concept simply.')" style="background: var(--bg-input); border: 1px solid var(--border); padding: 15px; border-radius: 8px; cursor: pointer; transition: all 0.2s;">
-            <div style="font-weight: 600; font-size: 14px; margin-bottom: 5px; color: var(--accent);">Explain</div>
-            <div style="font-size: 13px; color: var(--text-dim);">Explain this technical concept simply</div>
+            <div style="font-weight: 600; font-size: 14px; margin-bottom: 5px; color: var(--accent);" data-i18n="suggestions.explain">Explain</div>
+            <div style="font-size: 13px; color: var(--text-dim);" data-i18n="suggestions.explain_desc">Explain this technical concept simply</div>
           </div>
 
           <div class="suggestion-card" onclick="quickPrompt('Ask a question about available enterprise information.')" style="background: var(--bg-input); border: 1px solid var(--border); padding: 15px; border-radius: 8px; cursor: pointer; transition: all 0.2s;">
-            <div style="font-weight: 600; font-size: 14px; margin-bottom: 5px; color: var(--accent);">Ask Urja Kavach</div>
-            <div style="font-size: 13px; color: var(--text-dim);">Ask a question about available enterprise info</div>
+            <div style="font-weight: 600; font-size: 14px; margin-bottom: 5px; color: var(--accent);" data-i18n="suggestions.ask">Ask Urja Kavach</div>
+            <div style="font-size: 13px; color: var(--text-dim);" data-i18n="suggestions.ask_desc">Ask a question about available enterprise info</div>
           </div>
           
         </div>
         
         <div style="margin-top: 30px; font-size: 13px; color: var(--text-dim); font-style: italic;">
-          💡 You can ask Urja Kavach to summarize documents, analyze information, draft content, explain concepts, or help you work with available enterprise knowledge.
+          <span data-i18n="suggestions.footer_hint">💡 You can ask Urja Kavach to summarize documents, analyze information, draft content, explain concepts, or help you work with available enterprise knowledge.</span>
         </div>
       </div>
     </div>

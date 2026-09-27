@@ -1376,3 +1376,18 @@ async function handleOnboardSubmit(event) {
 initAgentHub();
 
 
+
+
+
+// Sidebar toggle function
+window.toggleSidebar = function() {
+  const appContainer = document.getElementById('mainApp');
+  const openBtn = document.getElementById('openSidebarBtn');
+  if (appContainer.classList.contains('sidebar-collapsed')) {
+    appContainer.classList.remove('sidebar-collapsed');
+    openBtn.classList.add('panel-hidden');
+  } else {
+    appContainer.classList.add('sidebar-collapsed');
+    openBtn.classList.remove('panel-hidden');
+  }
+};
