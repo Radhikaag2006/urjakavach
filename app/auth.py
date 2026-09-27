@@ -26,10 +26,25 @@ def _save_users(users):
 def _hash_password(password: str, salt: str) -> str:
     return hashlib.sha256((salt + password).encode("utf-8")).hexdigest()
 
-def register_user(identifier: str, password: str, name: str, profession: str, country: str, emp_code: str, github_id: str, role: str = "user") -> dict:
+def register_user(
+    identifier: str, password: str, name: str, profession: str, 
+    country: str, emp_code: str, github_id: str, 
+    role: str = "employee", is_mrpl_employee: bool = True
+) -> dict:
     users = _load_users()
     identifier = identifier.strip().lower()
-    
+
+    if is_mrpl_employee:
+        # Check if they already typed @mrpl.in, otherwise append it
+        if "@" in identifier:
+            if not identifier.endswith("@mrpl.in"):
+                raise ValueError("MRPL employees must use an @mrpl.in email.")
+        else:
+            identifier = f"{identifier}@mrpl.in"
+    else:
+        if "@" not in identifier:
+            raise ValueError("Please provide a valid email address.")
+
     if len(password) <= 6:
         raise ValueError("Password must be more than 6 characters")
     if not emp_code.isdigit() or len(emp_code) != 6:
@@ -78,12 +93,19 @@ def get_user_info(user_id: str) -> dict | None:
     users = _load_users()
     if user_id in users:
         u = users[user_id]
-        return {"name": u.get("name", "User"), "profession": u.get("profession", "")}
+        return {
+            "name": u.get("name", "User"), 
+            "profession": u.get("profession", ""),
+            "role": u.get("role", "employee"),
+            "identifier": u.get("identifier", "")
+        }
     return None
 
 def authenticate_user(identifier: str, password: str) -> str:
     users = _load_users()
     identifier = identifier.strip().lower()
+    if "@" not in identifier:
+        identifier = f"{identifier}@mrpl.in"
     
     for u_id, u_data in users.items():
         if u_data.get("identifier") == identifier:

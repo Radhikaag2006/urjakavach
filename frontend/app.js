@@ -13,6 +13,19 @@ function showAuthError(msg) {
 
 let authMode = 'login';
 
+function toggleMrplInput() {
+  const isMrpl = document.getElementById('regIsMrpl').checked;
+  const suffix = document.getElementById('mrplSuffix');
+  const input = document.getElementById('regId');
+  if (isMrpl) {
+    suffix.style.display = 'block';
+    input.placeholder = 'Employee Username';
+  } else {
+    suffix.style.display = 'none';
+    input.placeholder = 'Email Address';
+  }
+}
+
 function toggleAuthMode() {
   authMode = authMode === 'login' ? 'register' : 'login';
   document.getElementById('loginForm').classList.toggle('panel-hidden', authMode !== 'login');
@@ -31,9 +44,47 @@ async function fetchMe() {
       currentUserProfile = await res.json();
       document.getElementById('userName').textContent = currentUserProfile.name;
       document.getElementById('userAvatar').textContent = currentUserProfile.name.charAt(0).toUpperCase();
+      
+      const role = currentUserProfile.role || 'employee';
+      document.getElementById('userRole').textContent = role.charAt(0).toUpperCase() + role.slice(1);
+      
+      // Update popup menu
+      const pmName = document.getElementById('pmName');
+      const pmEmail = document.getElementById('pmEmail');
+      const pmRole = document.getElementById('pmRole');
+      if (pmName) pmName.textContent = currentUserProfile.name;
+      if (pmEmail) pmEmail.textContent = currentUserProfile.identifier || currentUserProfile.emp_code || 'user';
+      if (pmRole) pmRole.textContent = role.charAt(0).toUpperCase() + role.slice(1);
+
+      
+      // Role-based UI logic
+      if (role === 'employee') {
+        document.getElementById('btnAgentHub').style.display = 'none';
+        document.getElementById('btnCodeFlow').style.display = 'none';
+      } else {
+        document.getElementById('btnAgentHub').style.display = 'flex';
+        document.getElementById('btnCodeFlow').style.display = 'flex';
+      }
     }
   } catch (e) {}
 }
+
+
+function toggleProfileMenu(event) {
+  if (event) event.stopPropagation();
+  const menu = document.getElementById('profileMenu');
+  if (!menu) return;
+  menu.classList.toggle('panel-hidden');
+}
+
+// Close profile menu if clicked outside
+document.addEventListener('click', function(event) {
+  const profileDiv = document.querySelector('.user-profile');
+  const menu = document.getElementById('profileMenu');
+  if (profileDiv && menu && !profileDiv.contains(event.target)) {
+    menu.classList.add('panel-hidden');
+  }
+});
 
 function openProfileModal() {
   document.getElementById('editName').value = currentUserProfile.name || '';
@@ -65,10 +116,19 @@ async function handleUpdateProfile() {
   }
 }
 
+function setLoginRole(btn, role) {
+  document.querySelectorAll('.uk-role-tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+function selectLoginTab(btn, role) {
+  setLoginRole(btn, role);
+}
+
 async function handleLogin() {
-  const identifier = document.getElementById('loginId').value;
+  const identifier = document.getElementById('loginId').value.trim();
   const password = document.getElementById('loginPassword').value;
-  if (!identifier || !password) return showAuthError(window.t('app.please_enter_details'));
+  if (!identifier || !password) return showAuthError('Please enter your ID and password.');
   
   const form = new FormData();
   form.append('identifier', identifier);
@@ -106,6 +166,8 @@ async function handleRegister() {
   const country = document.getElementById('regCountry').value;
   const empCode = document.getElementById('regEmpCode').value;
   const password = document.getElementById('regPassword').value;
+  const role = document.getElementById('regRole') ? document.getElementById('regRole').value : 'employee';
+  const isMrpl = document.getElementById('regIsMrpl') ? document.getElementById('regIsMrpl').checked : true;
   
   if (!identifier || !password || !name || !empCode) return showAuthError(window.t('app.please_fill_required'));
   
@@ -117,6 +179,8 @@ async function handleRegister() {
   form.append('country', country);
   form.append('emp_code', empCode);
   form.append('github_id', github);
+  form.append('role', role);
+  form.append('is_mrpl_employee', isMrpl);
   
   try {
     const res = await fetch(API + '/api/auth/register', { method: 'POST', body: form });
@@ -143,6 +207,20 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById('authScreen').classList.add('panel-hidden');
     document.getElementById('mainApp').classList.remove('panel-hidden');
     fetchMe();
+    loadHistory();
+  }
+  
+  const isOldUser = localStorage.getItem('uk_tour_done');
+  if (!isOldUser) {
+      localStorage.setItem('uk_tour_done', '1');
+  } else {
+      const emptyState = document.getElementById('emptyState');
+      if (emptyState) {
+          const h2 = emptyState.querySelector('h2');
+          const p = emptyState.querySelector('p');
+          if (h2) h2.style.display = 'none';
+          if (p) p.style.display = 'none';
+      }
   }
 });
 let uploadedFile = null;      // for the document-flow modal
@@ -154,10 +232,10 @@ let currentSessionId = null;
 /* ---------------------------------------------------------------- */
 function applyTheme(theme) {
   document.documentElement.setAttribute("data-theme", theme);
-  document.getElementById("themeIcon").textContent =
-    theme === "dark" ? "\u263D" : "\u2600";
-  document.getElementById("themeLabel").textContent =
-    theme === "dark" ? window.t('sidebar.dark_mode') : window.t('sidebar.light_mode');
+  const icon = document.getElementById("themeIcon");
+  if (icon) icon.textContent = theme === "dark" ? "\u263D" : "\u2600";
+  const label = document.getElementById("themeLabel");
+  if (label) label.textContent = theme === "dark" ? window.t('sidebar.dark_mode') : window.t('sidebar.light_mode');
   try { localStorage.setItem("uk_theme", theme); } catch (e) {}
 }
 
@@ -235,7 +313,7 @@ function addMessageBubble(role, html) {
   const wrap = document.createElement("div");
   wrap.className = "msg msg-" + role;
   wrap.innerHTML =
-    '<div class="msg-avatar">' + (role === "user" ? "R" : "U") + "</div>" +
+    '<div class="msg-avatar">' + (role === "user" ? (currentUserProfile.name || "U").charAt(0).toUpperCase() : "⚡") + "</div>" +
     '<div class="msg-body">' + html + "</div>";
   const container = document.getElementById("chatMessages");
   container.appendChild(wrap);
@@ -639,19 +717,40 @@ function quickPrompt(text) {
 function startNewChat() {
   currentSessionId = null;
   clearChatAttachments();
-  document.getElementById("chatTitle").textContent = window.t('main.new_chat_title');
-  document.getElementById("chatMessages").innerHTML =
-    '<div class="empty-state" id="emptyState">' +
-    '<h2>UrjaKavach Sovereign AI</h2>' +
-    '<p>Unified on-premise workbench. Chat, attach any document or code, or execute scripts in an isolated sandbox.</p>' +
-    '<div class="prompt-chips">' +
-    '<button class="chip" onclick="quickPrompt(\'Summarize the attached document and extract key highlights.\')">&#128196; Summarize document</button>' +
-    '<button class="chip" onclick="quickPrompt(\'Write a python script to calculate the moving average of pipeline pressure readings.\')">&#9889; Write &amp; run Python script</button>' +
-    '<button class="chip" onclick="quickPrompt(\'Please generate a PowerPoint presentation (.pptx) summarizing the key findings.\')">&#128202; Generate PowerPoint (.pptx)</button>' +
-    '<button class="chip" onclick="quickPrompt(\'Please structure these findings into an Excel spreadsheet (.xlsx) with status columns.\')">&#128200; Export Excel sheet (.xlsx)</button>' +
-    '<button class="chip" onclick="quickPrompt(\'Export this data table as a CSV dataset (.csv).\')">&#128203; Export CSV (.csv)</button>' +
-    '<button class="chip" onclick="quickPrompt(\'Please draft an official approval note (.docx) from the attached inspection data.\')">&#128221; Draft approval note (.docx)</button>' +
-    '</div></div>';
+  document.getElementById("chatTitle").textContent = window.t('main.new_chat_title') || "New chat";
+  
+  const firstName = (currentUserProfile.name || "User").split(" ")[0];
+  const isOldUser = localStorage.getItem('uk_tour_done');
+  
+  const bannerHtml = !isOldUser ? `
+    <h2 class="radiant-text">How can I help you today, ${firstName}?</h2>
+    <p style="color: var(--text-dim); font-size: 16px; margin-bottom: 40px; line-height: 1.5;">Your enterprise AI assistant for intelligent work, information and productivity.</p>
+  ` : `
+    <h2 class="radiant-text" style="font-size: 28px;">Hello, ${firstName}</h2>
+  `;
+
+  document.getElementById("chatMessages").innerHTML = `
+    <div class="empty-state" id="emptyState" style="text-align: center; max-width: 800px; margin: 60px auto; padding: 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%;">
+      ${bannerHtml}
+      
+      <div class="suggestion-cards" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; width: 100%; text-align: left; margin-bottom: 20px;">
+        <div class="suggestion-card" onclick="quickPrompt('Create a presentation from this information.')" style="background: var(--bg-input); border: 1px solid var(--border); padding: 15px; border-radius: 12px; cursor: pointer; transition: background 0.2s;">
+          <div style="font-size: 14px; color: var(--text-dim);">Create a presentation from this information</div>
+        </div>
+        <div class="suggestion-card" onclick="quickPrompt('Analyze this report and highlight the important points.')" style="background: var(--bg-input); border: 1px solid var(--border); padding: 15px; border-radius: 12px; cursor: pointer; transition: background 0.2s;">
+          <div style="font-size: 14px; color: var(--text-dim);">Analyze this report and highlight the important points</div>
+        </div>
+        <div class="suggestion-card" onclick="quickPrompt('Summarize this document.')" style="background: var(--bg-input); border: 1px solid var(--border); padding: 15px; border-radius: 12px; cursor: pointer; transition: background 0.2s;">
+          <div style="font-size: 14px; color: var(--text-dim);">Summarize this document</div>
+        </div>
+        <div class="suggestion-card" onclick="quickPrompt('Draft a professional email.')" style="background: var(--bg-input); border: 1px solid var(--border); padding: 15px; border-radius: 12px; cursor: pointer; transition: background 0.2s;">
+          <div style="font-size: 14px; color: var(--text-dim);">Draft a professional email</div>
+        </div>
+      </div>
+    </div>
+  `;
+  document.getElementById("chatInput").focus();
+  
   document.querySelectorAll(".history-item").forEach(el => el.classList.remove("active"));
 }
 
@@ -1278,3 +1377,18 @@ async function handleOnboardSubmit(event) {
 initAgentHub();
 
 
+
+
+
+// Sidebar toggle function
+window.toggleSidebar = function() {
+  const appContainer = document.getElementById('mainApp');
+  const openBtn = document.getElementById('openSidebarBtn');
+  if (appContainer.classList.contains('sidebar-collapsed')) {
+    appContainer.classList.remove('sidebar-collapsed');
+    openBtn.classList.add('panel-hidden');
+  } else {
+    appContainer.classList.add('sidebar-collapsed');
+    openBtn.classList.remove('panel-hidden');
+  }
+};
