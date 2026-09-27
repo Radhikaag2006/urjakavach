@@ -81,25 +81,31 @@ html, body {
 .new-chat-btn:hover { background: var(--accent-hover); }
 
 .quick-actions { padding: 4px 14px 10px; display: flex; flex-direction: column; gap: 6px; }
-\.quick-btn {
+
+
+
+
+
+
+
+.quick-btn {
   display: flex; align-items: center; gap: 8px;
-  background: linear-gradient(145deg, var(--bg-panel), var(--bg-input));
+  background: var(--bg-input);
   border: 1px solid var(--border); color: var(--text);
   padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 13px;
   text-align: left;
   transition: all 0.2s ease;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 .quick-btn:hover {
-  background: linear-gradient(145deg, var(--bg-input), var(--bg-panel));
+  background: var(--bg-hover);
   transform: translateY(-1px);
-  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
   border-color: var(--accent);
 }
 .quick-btn:active {
   transform: translateY(0);
 }
-.quick-btn:hover { background: var(--bg-hover); }
+
 .qb-dot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
 
 .history-header {

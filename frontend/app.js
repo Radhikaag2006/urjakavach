@@ -232,10 +232,10 @@ let currentSessionId = null;
 /* ---------------------------------------------------------------- */
 function applyTheme(theme) {
   document.documentElement.setAttribute("data-theme", theme);
-  document.getElementById("themeIcon").textContent =
-    theme === "dark" ? "\u263D" : "\u2600";
-  document.getElementById("themeLabel").textContent =
-    theme === "dark" ? window.t('sidebar.dark_mode') : window.t('sidebar.light_mode');
+  const icon = document.getElementById("themeIcon");
+  if (icon) icon.textContent = theme === "dark" ? "\u263D" : "\u2600";
+  const label = document.getElementById("themeLabel");
+  if (label) label.textContent = theme === "dark" ? window.t('sidebar.dark_mode') : window.t('sidebar.light_mode');
   try { localStorage.setItem("uk_theme", theme); } catch (e) {}
 }
 
