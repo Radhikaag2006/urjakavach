@@ -4,6 +4,7 @@
  */
 
 const API = "http://localhost:8000";
+window.API = API;
 
 let authToken = localStorage.getItem('uk_auth_token') || null;
 
@@ -649,6 +650,12 @@ async function sendChatMessage() {
 
   const thinking = addMessageBubble("assistant", '<span class="thinking">thinking&hellip;</span>');
 
+  // If this turn came from the voice assistant, it stashes the Whisper-detected
+  // language here so the backend can reply in the same language. Consumed once
+  // and cleared so subsequent typed messages are unaffected.
+  const voiceLanguage = window.pendingVoiceLanguage || null;
+  window.pendingVoiceLanguage = null;
+
   try {
     const form = new FormData();
         let baseMsg = message || "Please analyze and summarize the attached document(s).";
@@ -658,6 +665,7 @@ async function sendChatMessage() {
     form.append("message", baseMsg);
     if (currentSessionId) form.append("session_id", currentSessionId);
     if (activeAgent && activeAgent.id) form.append("agent_id", activeAgent.id);
+    if (voiceLanguage) form.append("detected_language", voiceLanguage);
     for (const f of filesToSend) {
       form.append("files", f);
     }
@@ -690,6 +698,10 @@ async function sendChatMessage() {
       actionsToolbar +
       '<div class="msg-tags">' + agentTag + sourceTag + groundedTag + "</div>";
 
+    document.dispatchEvent(new CustomEvent("uk:chat-reply", {
+      detail: { reply: data.reply, detectedLanguage: voiceLanguage },
+    }));
+
     await refreshLogs();
     await loadHistory();
     const titleText = message || (filesToSend.length > 0 ? filesToSend[0].name : "Chat");
@@ -699,6 +711,7 @@ async function sendChatMessage() {
     console.error(err);
     thinking.querySelector(".msg-body").innerHTML =
       '<div class="msg-error">Something went wrong: ' + escapeHtml(err.message) + "</div>";
+    document.dispatchEvent(new CustomEvent("uk:chat-reply-error", { detail: { error: err.message } }));
   } finally {
     sendBtn.disabled = false;
   }

@@ -190,11 +190,16 @@ def run_chat_flow(
     attachment_name: str | None = None,
     attachments: list[dict] | None = None,
     agent_id: str | None = None,
+    detected_language: str | None = None,
 ) -> dict:
     """General-purpose chat: answer a free-form question with multi-document and agent support.
 
     If an agent_id is provided, the agent's domain SKILL.md, system prompt,
     and permitted tools are dynamically bound to the execution pipeline.
+
+    detected_language ("hi"/"en") comes from the voice assistant's STT
+    step when this turn originated as speech; it is None for typed
+    messages, which keeps the existing text-chat behavior unchanged.
     """
     task_id = str(uuid.uuid4())[:8]
     if not session_id or chat_store.load(session_id) is None:
@@ -510,6 +515,7 @@ def run_chat_flow(
         combined_attached_text,
         doc_context=doc_context,
         documents=all_session_docs,
+        detected_language=detected_language,
     )
     log_step(
         task_id, "tool:reasoning",

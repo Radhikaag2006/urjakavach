@@ -61,10 +61,21 @@ CODE_MODEL_NAME = os.getenv("CODE_MODEL_NAME", "Qwen2.5-Coder-1.5B-Instruct")
 
 MODEL_TIMEOUT_SEC = int(os.getenv("MODEL_TIMEOUT_SEC", "120"))
 MODEL_MAX_TOKENS = int(os.getenv("MODEL_MAX_TOKENS", "384"))
+# Spoken replies are read aloud end-to-end (LLM generation, then TTS
+# synthesis, both sequential); capping them shorter than typed-chat
+# replies keeps voice-turn latency down without touching text chat.
+VOICE_MODEL_MAX_TOKENS = int(os.getenv("VOICE_MODEL_MAX_TOKENS", "120"))
 MODEL_TEMPERATURE = float(os.getenv("MODEL_TEMPERATURE", "0.2"))
 # Optional explicit path to the Tesseract binary. Leave unset to rely on
 # PATH (works on Mac/Linux usually; Windows PATH issues are common).
 TESSERACT_CMD = os.getenv("TESSERACT_CMD", "")
+
+# --------------------------------------------------------------------
+# Voice assistant — local speech-to-text (faster-whisper) and
+# text-to-speech (MMS-TTS via transformers). English + Hindi only.
+# --------------------------------------------------------------------
+WHISPER_MODEL_SIZE = os.getenv("WHISPER_MODEL_SIZE", "small")
+TTS_TMP_DIR = os.path.join(APP_DIR, "tmp_audio")
 
 # --------------------------------------------------------------------
 # Knowledge base (organisation-specific grounding)

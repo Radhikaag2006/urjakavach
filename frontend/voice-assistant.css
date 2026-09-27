@@ -1,0 +1,134 @@
+/*
+ * MRPL Voice Assistant — self-contained styling.
+ * Namespaced under .mrpl-va-* / #mrplVa* so it never collides with the
+ * rest of the app's CSS. Safe to include/exclude independently.
+ */
+
+.mrpl-va-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mrpl-va-overlay.panel-hidden { display: none; }
+
+.mrpl-va-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(5, 8, 16, 0.72);
+  backdrop-filter: blur(6px);
+}
+
+.mrpl-va-panel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+}
+
+.mrpl-va-orb-wrap {
+  position: relative;
+  width: 180px;
+  height: 180px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+/* Soft pulsing Siri-style glow. --mrpl-va-level (0..1) is updated live
+   from the mic's input volume while listening. */
+.mrpl-va-orb-glow {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  --mrpl-va-level: 0;
+  background: radial-gradient(circle at 35% 30%,
+      rgba(0, 243, 255, 0.85) 0%,
+      rgba(0, 136, 255, 0.55) 35%,
+      rgba(255, 102, 0, 0.35) 60%,
+      rgba(0, 51, 204, 0.15) 80%,
+      transparent 100%);
+  filter: blur(6px);
+  transform: scale(calc(0.72 + var(--mrpl-va-level) * 0.5));
+  opacity: 0.85;
+  transition: transform 90ms ease-out;
+  animation: mrpl-va-breathe 2.6s ease-in-out infinite;
+}
+
+@keyframes mrpl-va-breathe {
+  0%, 100% { filter: blur(6px) hue-rotate(0deg); }
+  50% { filter: blur(9px) hue-rotate(25deg); }
+}
+
+.mrpl-va-orb-ring {
+  position: absolute;
+  inset: 14px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(0, 243, 255, 0.4);
+  animation: mrpl-va-spin 6s linear infinite;
+}
+
+@keyframes mrpl-va-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.mrpl-va-logo {
+  position: relative;
+  width: 64px;
+  height: 72px;
+  z-index: 2;
+  filter: drop-shadow(0 0 8px rgba(0, 200, 255, 0.6));
+}
+
+/* Processing state: hide the reactive glow/ring, show a thinking spinner */
+.mrpl-va-spinner {
+  position: absolute;
+  inset: 30px;
+  border-radius: 50%;
+  border: 3px solid rgba(0, 243, 255, 0.15);
+  border-top-color: #00f3ff;
+  display: none;
+  animation: mrpl-va-spin 0.9s linear infinite;
+}
+
+.mrpl-va-overlay.state-processing .mrpl-va-orb-glow,
+.mrpl-va-overlay.state-processing .mrpl-va-orb-ring {
+  display: none;
+}
+.mrpl-va-overlay.state-processing .mrpl-va-spinner {
+  display: block;
+}
+.mrpl-va-overlay.state-processing .mrpl-va-orb-wrap {
+  cursor: default;
+}
+
+.mrpl-va-status {
+  color: #e8f6ff;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.mrpl-va-hint {
+  color: rgba(232, 246, 255, 0.55);
+  font-size: 12px;
+}
+
+.mrpl-va-overlay.state-processing .mrpl-va-hint { visibility: hidden; }
+
+/* Subtle cue on the mic button itself while a spoken reply is playing */
+#vaMicBtn.mrpl-va-speaking {
+  color: #00c8ff;
+  animation: mrpl-va-mic-pulse 1s ease-in-out infinite;
+}
+
+@keyframes mrpl-va-mic-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}

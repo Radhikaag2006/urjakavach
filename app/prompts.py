@@ -84,12 +84,30 @@ def build_code_prompt(prompt: str) -> list[dict]:
     ]
 
 
+VOICE_LANGUAGE_MATCH_PROMPT = """You will receive a user message along with its detected input language
+(hi = Hindi, en = English, hinglish = Hindi and English mixed together).
+
+Rules for your reply:
+- If detected_language is "hi", reply entirely in Hindi using Devanagari script.
+- If detected_language is "en", reply entirely in English.
+- If detected_language is "hinglish", reply in casual Hinglish: mix Hindi
+  and English the way people actually type/speak it day to day, in Roman
+  (Latin) script, NOT Devanagari. Do not switch to pure Hindi or pure
+  English - match the mixed, conversational register of the input.
+- Do not translate or explain the language you are using - just respond
+  naturally in it.
+- Keep technical terms (proper nouns, product names, numbers) as-is
+  regardless of language.
+"""
+
+
 def build_chat_prompt(
     history: list[dict],
     kb_context: str = "",
     attached_text: str = "",
     doc_context: dict | None = None,
     documents: list[dict] | None = None,
+    detected_language: str | None = None,
 ) -> list[dict]:
     """General-purpose chat prompt, grounded on plant docs and/or
     attached documents/images across turns.
@@ -148,6 +166,20 @@ def build_chat_prompt(
         messages.append({
             "role": "system",
             "content": "\n\n---\n\n".join(context_parts),
+        })
+    if detected_language:
+        messages.append({"role": "system", "content": VOICE_LANGUAGE_MATCH_PROMPT})
+        messages.append({
+            "role": "system",
+            "content": f'detected_language: "{detected_language}"',
+        })
+        messages.append({
+            "role": "system",
+            "content": (
+                "This reply will be read aloud by text-to-speech. Keep it "
+                "short and conversational - 2 to 4 sentences - and avoid "
+                "bullet points, headings, or markdown formatting."
+            ),
         })
     messages.extend(history)
     return messages
