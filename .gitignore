@@ -17,6 +17,7 @@ app/logs/*
 app/chat_history/*
 app/samples/*
 app/outputs/*
+app/tmp_audio/*
 
 # Generated knowledge-base index
 app/kb/index/

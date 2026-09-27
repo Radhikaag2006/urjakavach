@@ -67,7 +67,7 @@ def model_name_for(task_type: str) -> str:
 # --------------------------------------------------------------------
 # Real inference — OpenAI-compatible llama.cpp server call
 # --------------------------------------------------------------------
-def _call_model(task_type: str, messages: list[dict]) -> str:
+def _call_model(task_type: str, messages: list[dict], max_tokens: int | None = None) -> str:
     """POST to the llama.cpp server for this task type. Raises on any
     failure so the caller can fall back to the stub."""
     import requests
@@ -76,7 +76,7 @@ def _call_model(task_type: str, messages: list[dict]) -> str:
     payload = {
         "messages": messages,
         "temperature": config.MODEL_TEMPERATURE,
-        "max_tokens": config.MODEL_MAX_TOKENS,
+        "max_tokens": max_tokens or config.MODEL_MAX_TOKENS,
         "stream": False,
     }
 
@@ -153,9 +153,13 @@ def chat(
     attached_text: str = "",
     doc_context: dict | None = None,
     documents: list[dict] | None = None,
+    detected_language: str | None = None,
 ) -> tuple[str, str]:
     """General-purpose chat reply, grounded on kb_context/attached_text/doc_context
-    or multiple session documents. Returns (reply, source)."""
+    or multiple session documents. Returns (reply, source).
+
+    detected_language ("hi"/"en"), when set, tells the model to reply in
+    that language — used for voice-originated turns."""
     if config.USE_REAL_MODEL:
         try:
             messages = prompts.build_chat_prompt(
@@ -164,8 +168,10 @@ def chat(
                 attached_text=attached_text,
                 doc_context=doc_context,
                 documents=documents,
+                detected_language=detected_language,
             )
-            reply = _call_model("reasoning", messages)
+            max_tokens = config.VOICE_MODEL_MAX_TOKENS if detected_language else None
+            reply = _call_model("reasoning", messages, max_tokens=max_tokens)
             if reply.strip():
                 return reply, "model"
         except Exception:  # noqa: BLE001

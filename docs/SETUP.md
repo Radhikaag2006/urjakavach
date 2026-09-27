@@ -132,6 +132,26 @@ Check `/api/health` — `models` should show both as `"up"`.
 
 ---
 
+## 8b. Voice input — optional, for English/Hindi/Kannada mic input
+
+Uses a local Whisper model (via `transformers`), already in `requirements.txt`.
+Needs the `ffmpeg` OS binary to decode the browser-recorded audio:
+
+- **Mac:** `brew install ffmpeg`
+- **Linux:** `sudo apt install ffmpeg`
+- **Windows:** download a build from [ffmpeg.org](https://ffmpeg.org/download.html), add its `bin/` folder to PATH
+
+Verify — this must print a version, not "command not found":
+
+```bash
+ffmpeg -version
+```
+
+First transcription request downloads `openai/whisper-small` (~500 MB) from
+Hugging Face, then it runs fully offline. Click the mic button next to the
+chat input, speak, click again to stop — the transcript is inserted using
+whichever of English/Hindi/Kannada is the current UI language.
+
 ## 9. Knowledge base — optional, for MRPL grounding
 
 ```bash

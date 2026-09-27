@@ -6,6 +6,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="voice-assistant.css">
 </head>
 <body>
 
@@ -332,6 +333,7 @@
         <button class="attach-btn" title="Attach file(s)"
                 onclick="document.getElementById('chatFileInput').click()">&#128206;</button>
         <input type="file" id="chatFileInput" multiple accept="*/*" onchange="onChatFileChosen(event)">
+        <button class="attach-btn" id="vaMicBtn" title="Voice input (English/Hindi)" onclick="window.mrplVoiceAssistant && window.mrplVoiceAssistant.toggle()">&#127908;</button>
         <textarea id="chatInput" rows="1"
                   data-i18n-placeholder="main.chat_placeholder" placeholder="Ask anything, or describe a coding/document task..."
                   onkeydown="onChatInputKeydown(event)"
@@ -517,8 +519,67 @@ Enter standard operating procedures, equations, or click 'AI Draft Skill' above.
   </div>
 </div>
 
+<!-- ================================================================ -->
+<!-- MRPL Voice Assistant — self-contained widget (own CSS/JS below). -->
+<!-- Not touched by / does not touch the rest of the app's layout.    -->
+<!-- ================================================================ -->
+<div id="mrplVaOverlay" class="mrpl-va-overlay panel-hidden" aria-hidden="true">
+  <div class="mrpl-va-backdrop" onclick="window.mrplVoiceAssistant && window.mrplVoiceAssistant.cancel()"></div>
+  <div class="mrpl-va-panel">
+    <div class="mrpl-va-orb-wrap" onclick="window.mrplVoiceAssistant && window.mrplVoiceAssistant.stop()">
+      <div class="mrpl-va-orb-glow" id="mrplVaGlow"></div>
+      <div class="mrpl-va-orb-ring"></div>
+      <div class="mrpl-va-spinner" id="mrplVaSpinner"></div>
+      <div class="mrpl-va-logo">
+        <svg viewBox="0 0 120 135" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="vaCyanBlueGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#00f3ff" />
+              <stop offset="50%" stop-color="#0088ff" />
+              <stop offset="100%" stop-color="#0033cc" />
+            </linearGradient>
+            <linearGradient id="vaMetallicGrad" x1="0%" y1="100%" x2="100%" y2="0%">
+              <stop offset="0%" stop-color="#2a4563" />
+              <stop offset="50%" stop-color="#5a86b3" />
+              <stop offset="100%" stop-color="#80b3e6" />
+            </linearGradient>
+            <linearGradient id="vaGoldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#fff8b0" />
+              <stop offset="40%" stop-color="#ffcc00" />
+              <stop offset="100%" stop-color="#ff6600" />
+            </linearGradient>
+            <filter id="vaNeonGlow" x="-30%" y="-30%" width="160%" height="160%">
+              <feGaussianBlur in="SourceGraphic" stdDeviation="2.5" result="blur1" />
+              <feGaussianBlur in="SourceGraphic" stdDeviation="5" result="blur2" />
+              <feMerge>
+                <feMergeNode in="blur2" />
+                <feMergeNode in="blur1" />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
+          </defs>
+          <g transform="translate(60, 65)">
+            <path d="M 0 -55 L 45 -40 L 40 20 L 0 65 L -40 20 L -45 -40 Z"
+                  fill="none" stroke="url(#vaCyanBlueGrad)" stroke-width="2.5"
+                  filter="url(#vaNeonGlow)" stroke-linejoin="round" />
+            <path d="M 0 -45 L 35 -33 L 31 15 L 0 52 L -31 15 L -35 -33 Z"
+                  fill="rgba(0, 20, 40, 0.4)" stroke="url(#vaMetallicGrad)" stroke-width="1.5"
+                  stroke-linejoin="round" />
+            <circle cx="0" cy="0" r="18" fill="none" stroke="url(#vaMetallicGrad)" stroke-width="0.5" opacity="0.8"/>
+            <path d="M 0 -12 Q 0 0 -12 0 Q 0 0 0 12 Q 0 0 12 0 Q 0 0 0 -12 Z"
+                  fill="url(#vaGoldGrad)" />
+          </g>
+        </svg>
+      </div>
+    </div>
+    <div class="mrpl-va-status" id="mrplVaStatus">Listening&hellip;</div>
+    <div class="mrpl-va-hint">Tap the orb or press Esc to stop</div>
+  </div>
+</div>
+
 <script src="locales.js"></script>
 <script src="i18n.js"></script>
 <script src="app.js"></script>
+<script src="voice-assistant.js"></script>
 </body>
 </html>

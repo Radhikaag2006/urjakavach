@@ -48,6 +48,28 @@ app.add_middleware(
 )
 
 
+@app.on_event("startup")
+def _preload_voice_models() -> None:
+    """Warm the Whisper STT and MMS-TTS models in the background at
+    startup so the first voice turn of a session isn't stuck paying
+    multi-second model-load time on top of transcription/synthesis."""
+    import threading
+
+    def _warm():
+        try:
+            from .tools.whisper_service import preload_model as preload_whisper
+            preload_whisper()
+        except Exception:  # noqa: BLE001
+            pass
+        try:
+            from .tools.tts_service import preload_models as preload_tts
+            preload_tts()
+        except Exception:  # noqa: BLE001
+            pass
+
+    threading.Thread(target=_warm, daemon=True).start()
+
+
 @app.post("/api/auth/register")
 def register(
     identifier: str = Form(...), 
@@ -168,6 +190,62 @@ def submit_code_task(prompt: str = Form(...)):
     result = orchestrator.run_code_flow(prompt)
     return JSONResponse(result)
 
+@app.post("/api/transcribe")
+def transcribe_speech(
+    audio: UploadFile = File(...),
+    user_id: str = Depends(get_current_user),
+):
+    """Transcribe recorded voice input (English/Hindi auto-detected) to
+    text using local faster-whisper. No audio ever leaves the machine."""
+    from .tools.whisper_service import transcribe_audio
+
+    content = audio.file.read()
+    MAX_AUDIO_BYTES = 15 * 1024 * 1024
+    if len(content) > MAX_AUDIO_BYTES:
+        raise HTTPException(status_code=413, detail="Audio too large (max 15MB)")
+    if len(content) == 0:
+        raise HTTPException(status_code=400, detail="No audio received")
+
+    try:
+        text, detected_language = transcribe_audio(content)
+    except Exception as e:  # noqa: BLE001 - surface any failure as clean JSON, never a raw 500
+        raise HTTPException(status_code=500, detail=f"{type(e).__name__}: {e}") from e
+
+    return {"text": text, "detected_language": detected_language}
+
+
+class SynthesizeRequest(BaseModel):
+    text: str
+    language: str
+
+
+@app.post("/api/synthesize")
+def synthesize_speech_endpoint(
+    req: SynthesizeRequest,
+    user_id: str = Depends(get_current_user),
+):
+    """Synthesize a spoken reply (English/Hindi) using local MMS-TTS.
+    The temp WAV file is deleted right after it is streamed back."""
+    from starlette.background import BackgroundTask
+    from .tools.tts_service import synthesize_speech
+
+    lang = req.language if req.language in ("en", "hi") else "en"
+    if not req.text.strip():
+        raise HTTPException(status_code=400, detail="No text provided")
+
+    try:
+        wav_path = synthesize_speech(req.text, lang)
+    except RuntimeError as e:
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+    return FileResponse(
+        wav_path,
+        media_type="audio/wav",
+        filename="reply.wav",
+        background=BackgroundTask(lambda: os.remove(wav_path) if os.path.exists(wav_path) else None),
+    )
+
+
 @app.post("/api/sandbox/execute")
 def execute_code_in_sandbox(
     code: str = Form(...),
@@ -187,6 +265,7 @@ def submit_chat_message(
     file: UploadFile | None = File(None),
     files: list[UploadFile] | None = File(None),
     agent_id: str | None = Form(None),
+    detected_language: str | None = Form(None),
     user_id: str = Depends(get_current_user)
 ):
     """General-purpose chat — ask about uploaded docs/code or anything
@@ -245,6 +324,7 @@ def submit_chat_message(
         clean_msg,
         attachments=attachments,
         agent_id=agent_id,
+        detected_language=detected_language,
     )
     return JSONResponse(result)
 
