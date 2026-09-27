@@ -207,6 +207,7 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById('authScreen').classList.add('panel-hidden');
     document.getElementById('mainApp').classList.remove('panel-hidden');
     fetchMe();
+    loadHistory();
   }
   
   const isOldUser = localStorage.getItem('uk_tour_done');
