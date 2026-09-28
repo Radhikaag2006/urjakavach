@@ -5,8 +5,9 @@
 <title data-i18n="title">UrjaKavach — Sovereign AI Workbench</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=3">
-<link rel="stylesheet" href="voice-assistant.css?v=3">
+<link rel="stylesheet" href="styles.css?v=55500550">
+<link rel="stylesheet" href="voice-assistant.css?v=555550">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
 </head>
 <body>
 
@@ -19,80 +20,9 @@
     <div class="auth-logo-section">
       <div class="logo-container">
         <div class="svg-container">
-            <svg viewBox="0 0 120 135" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
-                <defs>
-                    <linearGradient id="cyanBlueGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                        <stop offset="0%" stop-color="#00f3ff" />
-                        <stop offset="50%" stop-color="#0088ff" />
-                        <stop offset="100%" stop-color="#0033cc" />
-                    </linearGradient>
-                    <linearGradient id="metallicGrad" x1="0%" y1="100%" x2="100%" y2="0%">
-                        <stop offset="0%" stop-color="#2a4563" />
-                        <stop offset="50%" stop-color="#5a86b3" />
-                        <stop offset="100%" stop-color="#80b3e6" />
-                    </linearGradient>
-                    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                        <stop offset="0%" stop-color="#fff8b0" />
-                        <stop offset="40%" stop-color="#ffcc00" />
-                        <stop offset="100%" stop-color="#ff6600" />
-                    </linearGradient>
-                    <filter id="neonGlow" x="-30%" y="-30%" width="160%" height="160%">
-                        <feGaussianBlur in="SourceGraphic" stdDeviation="2.5" result="blur1" />
-                        <feGaussianBlur in="SourceGraphic" stdDeviation="5" result="blur2" />
-                        <feMerge>
-                            <feMergeNode in="blur2" />
-                            <feMergeNode in="blur1" />
-                            <feMergeNode in="SourceGraphic" />
-                        </feMerge>
-                    </filter>
-                    <filter id="sparkGlow" x="-50%" y="-50%" width="200%" height="200%">
-                        <feGaussianBlur in="SourceGraphic" stdDeviation="2" result="blur1" />
-                        <feGaussianBlur in="SourceGraphic" stdDeviation="6" result="blur2" />
-                        <feMerge>
-                            <feMergeNode in="blur2" />
-                            <feMergeNode in="blur1" />
-                            <feMergeNode in="SourceGraphic" />
-                        </feMerge>
-                    </filter>
-                </defs>
-                <g transform="translate(60, 65)">
-                    <path d="M 0 -55 L 45 -40 L 40 20 L 0 65 L -40 20 L -45 -40 Z" 
-                          fill="none" stroke="url(#cyanBlueGrad)" stroke-width="2.5" 
-                          filter="url(#neonGlow)" stroke-linejoin="round" />
-                    <path d="M 0 -45 L 35 -33 L 31 15 L 0 52 L -31 15 L -35 -33 Z" 
-                          fill="rgba(0, 20, 40, 0.4)" stroke="url(#metallicGrad)" stroke-width="1.5" 
-                          stroke-linejoin="round" />
-                    <path d="M 0 -38 L 28 -27 L 24 10 L 0 42 L -24 10 L -28 -27 Z" 
-                          fill="none" stroke="url(#cyanBlueGrad)" stroke-width="1" 
-                          stroke-dasharray="6 4" opacity="0.6" stroke-linejoin="round" />
-                    <path d="M -35 -10 C -15 -35, 15 -35, 35 -10 C 20 10, -20 20, -15 45" 
-                          fill="none" stroke="url(#cyanBlueGrad)" stroke-width="1.5" 
-                          filter="url(#neonGlow)" stroke-linecap="round" />
-                    <path d="M 35 15 C 20 40, -10 30, -25 15 C -20 -10, 10 -20, 25 -35" 
-                          fill="none" stroke="#00f3ff" stroke-width="1" opacity="0.7"
-                          stroke-linecap="round" stroke-dasharray="30 10" />
-                    <circle cx="0" cy="0" r="18" fill="none" stroke="url(#metallicGrad)" stroke-width="0.5" opacity="0.8"/>
-                    <circle cx="0" cy="0" r="13" fill="none" stroke="#00f3ff" stroke-width="1" stroke-dasharray="4 6" opacity="0.5"/>
-                    <circle cx="-35" cy="-10" r="2.5" fill="#00f3ff" filter="url(#neonGlow)"/>
-                    <circle cx="35" cy="-10" r="1.5" fill="#00f3ff" />
-                    <circle cx="-15" cy="45" r="2" fill="#00f3ff" filter="url(#neonGlow)"/>
-                    <circle cx="35" cy="15" r="2" fill="#00f3ff" />
-                    <circle cx="25" cy="-35" r="1.5" fill="#00f3ff" />
-                    <circle cx="-25" cy="15" r="1.5" fill="#00f3ff" opacity="0.7"/>
-                    <g class="spark-pulse">
-                        <path d="M 0 -12 Q 0 0 -12 0 Q 0 0 0 12 Q 0 0 12 0 Q 0 0 0 -12 Z" 
-                              fill="url(#goldGrad)" filter="url(#sparkGlow)" />
-                        <path d="M 0 -6 Q 0 0 -6 0 Q 0 0 0 6 Q 0 0 6 0 Q 0 0 0 -6 Z" 
-                              fill="#ffffff" />
-                    </g>
-                    <circle cx="0" cy="-55" r="2" fill="#fff" />
-                    <circle cx="45" cy="-40" r="2" fill="#00f3ff" />
-                    <circle cx="-45" cy="-40" r="2" fill="#00f3ff" />
-                </g>
-            </svg>
+          <img src="logo_blue.png" alt="Urja Kavach Logo" style="width: 100%; height: 100%; object-fit: contain;" />
         </div>
-        <h1 class="title">Urja Kavach</h1>
-        <h2 class="subtitle">Offline LLM</h2>
+        
       </div>
     </div>
 
@@ -218,7 +148,7 @@
 
     <div class="quick-actions">
       <button class="quick-btn agent-hub-btn" onclick="openModal('agentHubModal')" id="btnAgentHub">
-        <span class="qb-dot" style="background:#4ec9b0;"></span> <span data-i18n="sidebar.agents_hub">🤖 Agents Hub</span>
+        <span class="qb-dot" style="background:#4ec9b0;"></span> <span data-i18n="sidebar.agents_hub"> Agents Hub</span>
       </button>
       <button class="quick-btn" onclick="openModal('docModal')" id="btnDocFlow">
         <span class="qb-dot" style="background:#569cd6;"></span> <span data-i18n="sidebar.doc_flow">Document Flow</span>
@@ -269,19 +199,23 @@
       <div class="chat-header-left">
         <div class="chat-title" id="chatTitle" data-i18n="main.new_chat_title">New chat</div>
         <div class="active-agent-pill" id="activeAgentPill" onclick="openModal('agentHubModal')" title="Click to switch or onboard domain agents" data-i18n-title="main.active_agent_tooltip">
-          <span class="agent-icon">🤖</span>
+          <span class="agent-icon"></span>
           <span id="activeAgentName" data-i18n="main.default_agent">General Engineering Agent</span>
-          <span class="agent-change-badge" data-i18n="main.change">Change ⚙️</span>
+          <span class="agent-change-badge" data-i18n="main.change">Change </span>
         </div>
       </div>
-      <button class="panel-toggle" id="panelToggleBtn" onclick="toggleActivityPanel()">
+      <div style="display: flex; gap: 8px; align-items: center;">
+        <button class="panel-toggle" onclick="changeZoom(-0.1)" title="Decrease font size">-</button>
+        <button class="panel-toggle" onclick="changeZoom(0.1)" title="Increase font size">+</button>
+        <button class="panel-toggle" id="panelToggleBtn" onclick="toggleActivityPanel()">
         <span data-i18n="main.activity_btn">Activity ▹</span>
       </button>
+      </div>
     </div>
 
     <div class="chat-messages" id="chatMessages">
       <div class="empty-state" id="emptyState" style="text-align: center; max-width: 700px; margin: 40px auto; padding: 20px;">
-        <div style="font-size: 48px; margin-bottom: 15px; color: var(--accent);">⚡</div>
+        <img src="logo_blue.png" alt="Urja Kavach Logo" style="width: 48px; height: auto; margin-bottom: 15px; display: inline-block;" />
         <h2 data-i18n="main.welcome_title" style="font-size: 28px; font-weight: 600; color: var(--text); margin-bottom: 10px;">Welcome to Urja Kavach</h2>
         <p data-i18n="main.welcome_desc" style="color: var(--text-dim); font-size: 16px; margin-bottom: 30px; line-height: 1.5;">Your enterprise AI assistant for intelligent work, information and productivity.</p>
         
@@ -321,9 +255,7 @@
           
         </div>
         
-        <div style="margin-top: 30px; font-size: 13px; color: var(--text-dim); font-style: italic;">
-          <span data-i18n="suggestions.footer_hint">💡 You can ask Urja Kavach to summarize documents, analyze information, draft content, explain concepts, or help you work with available enterprise knowledge.</span>
-        </div>
+        
       </div>
     </div>
 
@@ -331,9 +263,9 @@
       <div class="attach-preview panel-hidden" id="attachPreview"></div>
       <div class="input-row">
         <button class="attach-btn" title="Attach file(s)"
-                onclick="document.getElementById('chatFileInput').click()">&#128206;</button>
+                onclick="document.getElementById('chatFileInput').click()"><i class="bi bi-paperclip"></i></button>
         <input type="file" id="chatFileInput" multiple accept="*/*" onchange="onChatFileChosen(event)">
-        <button class="attach-btn" id="vaMicBtn" title="Voice input (English/Hindi)" onclick="window.mrplVoiceAssistant && window.mrplVoiceAssistant.toggle()">&#127908;</button>
+        <button class="attach-btn" id="vaMicBtn" title="Voice input (English/Hindi)" onclick="window.mrplVoiceAssistant && window.mrplVoiceAssistant.toggle()"><i class="bi bi-mic"></i></button>
         <textarea id="chatInput" rows="1"
                   data-i18n-placeholder="main.chat_placeholder" placeholder="Ask anything, or describe a coding/document task..."
                   onkeydown="onChatInputKeydown(event)"
@@ -421,13 +353,13 @@
 <div class="modal-overlay panel-hidden" id="agentHubModal">
   <div class="modal modal-lg">
     <div class="modal-header">
-      <span data-i18n="modals.agent_hub_title">🏭 Agent Hub & Onboarder — Industrial Domain Specialists</span>
+      <span data-i18n="modals.agent_hub_title"> Agent Hub & Onboarder — Industrial Domain Specialists</span>
       <button onclick="closeModal('agentHubModal')">&times;</button>
     </div>
     <div class="modal-body">
       <div class="agent-tabs">
-        <button class="agent-tab active" id="tabDiscoverBtn" onclick="switchAgentTab('discover')" data-i18n="modals.tab_discover">🛠️ Use Cases & Discovery</button>
-        <button class="agent-tab" id="tabOnboardBtn" onclick="switchAgentTab('onboard')" data-i18n="modals.tab_onboard">🚀 Onboard New Agent</button>
+        <button class="agent-tab active" id="tabDiscoverBtn" onclick="switchAgentTab('discover')" data-i18n="modals.tab_discover"> Use Cases & Discovery</button>
+        <button class="agent-tab" id="tabOnboardBtn" onclick="switchAgentTab('onboard')" data-i18n="modals.tab_onboard"> Onboard New Agent</button>
       </div>
 
       <!-- Tab 1: Discover & Semantic Search -->
@@ -479,12 +411,12 @@
             <div class="skill-header-row">
               <label data-i18n="modals.skill_spec">Domain Skill Specification (SKILL.md) *</label>
               <button type="button" class="btn-ai-draft" id="btnAiDraftSkill" onclick="draftSkillWithAi()" data-i18n="modals.ai_draft">
-                ✨ AI Draft Skill (Meta-Agent)
+                 AI Draft Skill (Meta-Agent)
               </button>
             </div>
             <div class="skill-upload-row">
               <input type="file" id="skillFileInput" accept=".md,.txt" onchange="onSkillFileChosen(event)" style="display:none" />
-              <button type="button" class="btn-secondary" onclick="document.getElementById('skillFileInput').click()" data-i18n="modals.upload_skill">📄 Upload SKILL.md / SOP File</button>
+              <button type="button" class="btn-secondary" onclick="document.getElementById('skillFileInput').click()" data-i18n="modals.upload_skill"> Upload SKILL.md / SOP File</button>
               <span id="skillFileNameHint" class="file-hint-text" data-i18n="modals.no_file">No file chosen (or write markdown below)</span>
             </div>
             <textarea id="newAgentSkill" rows="6" data-i18n-placeholder="modals.skill_placeholder" placeholder="# Domain Skill Specification
@@ -511,7 +443,7 @@ Enter standard operating procedures, equations, or click 'AI Draft Skill' above.
           </div>
 
           <div class="form-actions">
-            <button type="submit" class="btn-primary btn-lg" id="btnSubmitOnboard" data-i18n="modals.onboard_btn">🚀 Onboard & Launch Agent</button>
+            <button type="submit" class="btn-primary btn-lg" id="btnSubmitOnboard" data-i18n="modals.onboard_btn"> Onboard & Launch Agent</button>
           </div>
         </form>
       </div>
@@ -531,45 +463,7 @@ Enter standard operating procedures, equations, or click 'AI Draft Skill' above.
       <div class="mrpl-va-orb-ring"></div>
       <div class="mrpl-va-spinner" id="mrplVaSpinner"></div>
       <div class="mrpl-va-logo">
-        <svg viewBox="0 0 120 135" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
-          <defs>
-            <linearGradient id="vaCyanBlueGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stop-color="#00f3ff" />
-              <stop offset="50%" stop-color="#0088ff" />
-              <stop offset="100%" stop-color="#0033cc" />
-            </linearGradient>
-            <linearGradient id="vaMetallicGrad" x1="0%" y1="100%" x2="100%" y2="0%">
-              <stop offset="0%" stop-color="#2a4563" />
-              <stop offset="50%" stop-color="#5a86b3" />
-              <stop offset="100%" stop-color="#80b3e6" />
-            </linearGradient>
-            <linearGradient id="vaGoldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stop-color="#fff8b0" />
-              <stop offset="40%" stop-color="#ffcc00" />
-              <stop offset="100%" stop-color="#ff6600" />
-            </linearGradient>
-            <filter id="vaNeonGlow" x="-30%" y="-30%" width="160%" height="160%">
-              <feGaussianBlur in="SourceGraphic" stdDeviation="2.5" result="blur1" />
-              <feGaussianBlur in="SourceGraphic" stdDeviation="5" result="blur2" />
-              <feMerge>
-                <feMergeNode in="blur2" />
-                <feMergeNode in="blur1" />
-                <feMergeNode in="SourceGraphic" />
-              </feMerge>
-            </filter>
-          </defs>
-          <g transform="translate(60, 65)">
-            <path d="M 0 -55 L 45 -40 L 40 20 L 0 65 L -40 20 L -45 -40 Z"
-                  fill="none" stroke="url(#vaCyanBlueGrad)" stroke-width="2.5"
-                  filter="url(#vaNeonGlow)" stroke-linejoin="round" />
-            <path d="M 0 -45 L 35 -33 L 31 15 L 0 52 L -31 15 L -35 -33 Z"
-                  fill="rgba(0, 20, 40, 0.4)" stroke="url(#vaMetallicGrad)" stroke-width="1.5"
-                  stroke-linejoin="round" />
-            <circle cx="0" cy="0" r="18" fill="none" stroke="url(#vaMetallicGrad)" stroke-width="0.5" opacity="0.8"/>
-            <path d="M 0 -12 Q 0 0 -12 0 Q 0 0 0 12 Q 0 0 12 0 Q 0 0 0 -12 Z"
-                  fill="url(#vaGoldGrad)" />
-          </g>
-        </svg>
+          <img src="logo_blue.png" alt="Urja Kavach Logo" style="width: 100%; height: 100%; object-fit: contain;" />
       </div>
     </div>
     <div class="mrpl-va-status" id="mrplVaStatus">Listening&hellip;</div>
@@ -577,9 +471,9 @@ Enter standard operating procedures, equations, or click 'AI Draft Skill' above.
   </div>
 </div>
 
-<script src="locales.js?v=3"></script>
-<script src="i18n.js?v=3"></script>
-<script src="app.js?v=3"></script>
-<script src="voice-assistant.js?v=3"></script>
+<script src="locales.js?v=5555501"></script>
+<script src="i18n.js?v=555550"></script>
+<script src="app.js?v=5555501"></script>
+<script src="voice-assistant.js?v=555550"></script>
 </body>
 </html>

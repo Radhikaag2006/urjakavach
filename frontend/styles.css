@@ -1091,12 +1091,9 @@ button.run-btn:disabled { background: var(--bg-hover); color: var(--text-dim); c
 }
 
 .radiant-text {
-  font-size: 36px;
-  font-weight: 500;
-  background: linear-gradient(90deg, #4285f4, #9b72cb, #d96570);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  margin-bottom: 20px;
+    font-size: 36px;
+    font-weight: 500;
+    color: #4285f4;
 }
 
 .auth-form input, .auth-form select {
@@ -1485,10 +1482,9 @@ button.run-btn:disabled { background: var(--bg-hover); color: var(--text-dim); c
 
 /* Radiant gradient text */
 .radiant-text {
-  background: linear-gradient(90deg, #4285f4 0%, #9b72cb 50%, #d96570 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+    font-size: 36px;
+    font-weight: 500;
+    color: #4285f4;
 }
 
 /* SVG Logo in brand panel */
