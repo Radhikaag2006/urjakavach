@@ -225,13 +225,13 @@ ul.findings li { margin-bottom: 6px; }
 .badge-ok { color: var(--green); font-weight: 600; }
 .badge-fail { color: var(--red); font-weight: 600; }
 
-a.download-link {
+.download-link {
   display: inline-flex; align-items: center; gap: 6px; margin-top: 10px;
   background: rgba(78,201,176,0.15); color: var(--green); padding: 6px 12px;
   border-radius: 6px; text-decoration: none; font-size: 12.5px;
-  border: 1px solid rgba(78,201,176,0.3);
+  border: 1px solid rgba(78,201,176,0.3); font-family: inherit; cursor: pointer;
 }
-a.download-link:hover { background: rgba(78,201,176,0.25); }
+.download-link:hover { background: rgba(78,201,176,0.25); }
 
 .tag {
   display: inline-block; font-size: 10px; padding: 2px 7px; border-radius: 8px;
@@ -291,6 +291,7 @@ a.download-link:hover { background: rgba(78,201,176,0.25); }
   padding: 6px 14px; font-size: 12px; font-weight: 600;
   background: var(--accent); color: white; border-radius: 6px;
   text-decoration: none; transition: opacity 0.15s;
+  border: none; font-family: inherit; cursor: pointer;
 }
 .chat-deliverable-btn:hover { opacity: 0.9; text-decoration: none; }
 
@@ -314,6 +315,11 @@ a.download-link:hover { background: rgba(78,201,176,0.25); }
 .deliverable-btn.btn-copied {
   color: #4ade80 !important; border-color: #4ade80 !important;
 }
+.deliverable-btn.tts-playing {
+  color: var(--accent) !important; border-color: var(--accent) !important;
+  background: rgba(86, 156, 214, 0.15) !important;
+}
+.deliverable-btn.tts-loading { opacity: 0.6; cursor: wait; }
 .deliverable-btn-primary {
   background: rgba(86, 156, 214, 0.18);
   border-color: rgba(86, 156, 214, 0.4);

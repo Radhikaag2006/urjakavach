@@ -224,12 +224,12 @@ def synthesize_speech_endpoint(
     req: SynthesizeRequest,
     user_id: str = Depends(get_current_user),
 ):
-    """Synthesize a spoken reply (English/Hindi) using local MMS-TTS.
+    """Synthesize a spoken reply (English/Hindi/Kannada) using local MMS-TTS.
     The temp WAV file is deleted right after it is streamed back."""
     from starlette.background import BackgroundTask
     from .tools.tts_service import synthesize_speech
 
-    lang = req.language if req.language in ("en", "hi") else "en"
+    lang = req.language if req.language in ("en", "hi", "kn") else "en"
     if not req.text.strip():
         raise HTTPException(status_code=400, detail="No text provided")
 
@@ -266,6 +266,7 @@ def submit_chat_message(
     files: list[UploadFile] | None = File(None),
     agent_id: str | None = Form(None),
     detected_language: str | None = Form(None),
+    voice_mode: bool = Form(False),
     user_id: str = Depends(get_current_user)
 ):
     """General-purpose chat — ask about uploaded docs/code or anything
@@ -325,6 +326,7 @@ def submit_chat_message(
         attachments=attachments,
         agent_id=agent_id,
         detected_language=detected_language,
+        voice_mode=voice_mode,
     )
     return JSONResponse(result)
 

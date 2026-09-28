@@ -84,6 +84,15 @@ USE_KNOWLEDGE_BASE = os.getenv("USE_KNOWLEDGE_BASE", "true").lower() == "true"
 KB_TOP_K = int(os.getenv("KB_TOP_K", "2"))
 
 # --------------------------------------------------------------------
+# CV engineering-drawing pipeline (urjakavach/pipeline.py) — symbol
+# detection, geometry/line extraction and topology reconstruction for
+# attached P&ID/PFD images. Off by default: it is heavier than plain OCR
+# and its PaddleOCR-VL branch may fetch model weights over the network on
+# first use if they are not already cached locally.
+# --------------------------------------------------------------------
+USE_CV_PIPELINE = os.getenv("USE_CV_PIPELINE", "false").strip().lower() == "true"
+
+# --------------------------------------------------------------------
 # Sandbox
 # --------------------------------------------------------------------
 SANDBOX_TIMEOUT_SEC = int(os.getenv("SANDBOX_TIMEOUT_SEC", "5"))
@@ -103,5 +112,6 @@ def describe() -> dict:
         "reasoning_model": REASONING_MODEL_NAME if USE_REAL_MODEL else "deterministic-stub",
         "code_model": CODE_MODEL_NAME if USE_REAL_MODEL else "deterministic-stub",
         "knowledge_base": USE_KNOWLEDGE_BASE,
+        "use_cv_pipeline": USE_CV_PIPELINE,
         "external_calls": 0,
     }

@@ -85,7 +85,8 @@ def build_code_prompt(prompt: str) -> list[dict]:
 
 
 VOICE_LANGUAGE_MATCH_PROMPT = """You will receive a user message along with its detected input language
-(hi = Hindi, en = English, hinglish = Hindi and English mixed together).
+(hi = Hindi, en = English, hinglish = Hindi and English mixed together,
+kn = Kannada).
 
 Rules for your reply:
 - If detected_language is "hi", reply entirely in Hindi using Devanagari script.
@@ -94,11 +95,21 @@ Rules for your reply:
   and English the way people actually type/speak it day to day, in Roman
   (Latin) script, NOT Devanagari. Do not switch to pure Hindi or pure
   English - match the mixed, conversational register of the input.
+- If detected_language is "kn", reply entirely in Kannada using Kannada script.
 - Do not translate or explain the language you are using - just respond
   naturally in it.
-- Keep technical terms (proper nouns, product names, numbers) as-is
-  regardless of language.
+- Keep technical terms (proper nouns, product names, numbers, and equipment
+  tags) as-is regardless of language - never transliterate or translate them.
+- Base your answer strictly on the actual document/context content provided
+  above. If a term in the user's question does not clearly match anything
+  in that content, say so plainly instead of guessing a translation.
 """
+
+VOICE_REPLY_BREVITY_PROMPT = (
+    "This reply will be read aloud by text-to-speech. Keep it "
+    "short and conversational - 2 to 4 sentences - and avoid "
+    "bullet points, headings, or markdown formatting."
+)
 
 
 def build_chat_prompt(
@@ -108,6 +119,7 @@ def build_chat_prompt(
     doc_context: dict | None = None,
     documents: list[dict] | None = None,
     detected_language: str | None = None,
+    voice_mode: bool = False,
 ) -> list[dict]:
     """General-purpose chat prompt, grounded on plant docs and/or
     attached documents/images across turns.
@@ -155,6 +167,24 @@ def build_chat_prompt(
                 doc_section.append(f"Key Points / Highlights:\n{findings_block}")
             if raw.strip():
                 doc_section.append(f"Extracted Content:\n\"\"\"\n{raw[:5000]}\n\"\"\"")
+
+            cv_evidence = doc.get("cv_evidence")
+            if cv_evidence:
+                entities = cv_evidence.get("verified_entities", [])
+                connections = cv_evidence.get("verified_connections", [])
+                if entities or connections:
+                    cv_block = ["Computer-Vision Pipeline Evidence (verified detections, not OCR-inferred):"]
+                    if entities:
+                        ent_lines = "\n".join(
+                            f"- {e.get('label') or e.get('class')} ({e.get('class')}) at bbox {e.get('bbox')}"
+                            for e in entities[:20]
+                        )
+                        cv_block.append(f"Detected symbols/equipment:\n{ent_lines}")
+                    if connections:
+                        conn_lines = "\n".join(f"- {c.get('from')} -> {c.get('to')}" for c in connections[:20])
+                        cv_block.append(f"Verified pipe/line connections:\n{conn_lines}")
+                    doc_section.append("\n\n".join(cv_block))
+
             context_parts.append("\n\n".join(doc_section))
     elif attached_text:
         context_parts.append(
@@ -173,14 +203,8 @@ def build_chat_prompt(
             "role": "system",
             "content": f'detected_language: "{detected_language}"',
         })
-        messages.append({
-            "role": "system",
-            "content": (
-                "This reply will be read aloud by text-to-speech. Keep it "
-                "short and conversational - 2 to 4 sentences - and avoid "
-                "bullet points, headings, or markdown formatting."
-            ),
-        })
+        if voice_mode:
+            messages.append({"role": "system", "content": VOICE_REPLY_BREVITY_PROMPT})
     messages.extend(history)
     return messages
 

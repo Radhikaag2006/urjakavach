@@ -189,8 +189,46 @@
     }
   }
 
+  // Strips markdown syntax before handing text to TTS, so it isn't read
+  // aloud literally ("asterisk asterisk...", "hash hash Summary").
+  function stripMarkdownForSpeech(text) {
+    return String(text)
+      .replace(/```[\s\S]*?```/g, " ")
+      .replace(/`([^`]+)`/g, "$1")
+      .replace(/^#{1,6}\s+/gm, "")
+      .replace(/\*\*(.*?)\*\*/g, "$1")
+      .replace(/\*(.*?)\*/g, "$1")
+      .replace(/^\s*[-*•]\s+/gm, "")
+      .replace(/^\s*\d+[.)]\s+/gm, "")
+      .trim();
+  }
+
+  // Guesses the reply's language from its script for playback purposes.
+  // Only en/hi/kn have local TTS voices - anything else (e.g. hinglish
+  // written in Latin script) falls back to the English voice.
+  function detectSpeechLanguage(text) {
+    if (/[ऀ-ॿ]/.test(text)) return "hi";
+    if (/[ಀ-೿]/.test(text)) return "kn";
+    return "en";
+  }
+
+  let currentAudio = null;
+  let currentBtn = null;
+
+  function resetButton(btn) {
+    if (!btn) return;
+    btn.classList.remove("tts-playing", "tts-loading");
+    btn.innerHTML = "&#128266; Listen";
+  }
+
   async function speak(text, language) {
-    if (!text || !language) return;
+    // Used for the always-on voice-assistant overlay (no button to manage).
+    await playSynthesis(text, language, null);
+  }
+
+  async function playSynthesis(rawText, language, btn) {
+    const text = stripMarkdownForSpeech(rawText);
+    if (!text) return;
     try {
       const headers = Object.assign(
         { "Content-Type": "application/json" },
@@ -206,14 +244,56 @@
       const url = URL.createObjectURL(blob);
       const audio = new Audio(url);
       if (micBtn) micBtn.classList.add("mrpl-va-speaking");
+      if (btn) {
+        currentAudio = audio;
+        currentBtn = btn;
+        btn.classList.remove("tts-loading");
+        btn.classList.add("tts-playing");
+        btn.innerHTML = "&#9209; Stop";
+      }
       audio.onended = audio.onerror = () => {
         URL.revokeObjectURL(url);
         if (micBtn) micBtn.classList.remove("mrpl-va-speaking");
+        if (btn) resetButton(btn);
+        if (currentAudio === audio) {
+          currentAudio = null;
+          currentBtn = null;
+        }
       };
       await audio.play();
     } catch (err) {
       console.error("MRPL voice assistant: speech synthesis failed", err);
+      if (btn) {
+        resetButton(btn);
+        alert("Couldn't generate audio: " + err.message);
+      }
     }
+  }
+
+  // Public entry point for the per-message "Listen" button in the chat UI.
+  // Toggles: click again on a playing button to stop it; starting a new
+  // one stops whichever reply was already playing.
+  async function speakText(rawText, btn) {
+    // A synthesis request is already in flight for this button - ignore
+    // repeat clicks instead of firing duplicate overlapping requests.
+    if (btn.classList.contains("tts-loading")) return;
+    if (currentBtn === btn && currentAudio) {
+      currentAudio.pause();
+      resetButton(btn);
+      currentAudio = null;
+      currentBtn = null;
+      return;
+    }
+    if (currentAudio) {
+      currentAudio.pause();
+      resetButton(currentBtn);
+      currentAudio = null;
+      currentBtn = null;
+    }
+    btn.classList.add("tts-loading");
+    btn.innerHTML = "&#8987; Loading…";
+    const language = detectSpeechLanguage(rawText);
+    await playSynthesis(rawText, language, btn);
   }
 
   document.addEventListener("uk:chat-reply", (e) => {
@@ -221,7 +301,7 @@
     awaitingReply = false;
     setState("idle");
     const { reply, detectedLanguage } = e.detail || {};
-    if (detectedLanguage) speak(reply, detectedLanguage);
+    if (detectedLanguage) speak(reply, detectedLanguage === "hinglish" ? "en" : detectedLanguage);
   });
 
   document.addEventListener("uk:chat-reply-error", () => {
@@ -235,4 +315,5 @@
   });
 
   window.mrplVoiceAssistant = { start, stop, cancel, toggle };
+  window.mrplSpeakText = speakText;
 })();

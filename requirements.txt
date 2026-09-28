@@ -51,7 +51,7 @@ paddleocr
 
 paddlepaddle
 
-paddlex
+paddlex[ocr]          # [ocr] extra required for PaddleOCR-VL - plain `paddlex` fails at runtime without it
 
 # Tests
 pytest

@@ -12,6 +12,22 @@ function showAuthError(msg) {
   document.getElementById('authError').textContent = msg;
 }
 
+function formatAuthError(detail, fallback) {
+  if (Array.isArray(detail)) {
+    return detail.map(error => {
+      const field = Array.isArray(error.loc)
+        ? error.loc.filter(part => part !== 'body').join('.')
+        : '';
+      const message = error.msg || error.message || 'Invalid value';
+      return field ? `${field}: ${message}` : message;
+    }).join(' | ');
+  }
+  if (detail && typeof detail === 'object') {
+    return detail.message || JSON.stringify(detail);
+  }
+  return detail || fallback;
+}
+
 let authMode = 'login';
 
 function toggleMrplInput() {
@@ -146,7 +162,7 @@ async function handleLogin() {
       await fetchMe();
       loadHistory();
     } else {
-      showAuthError(data.detail || window.t('app.login_failed'));
+      showAuthError(formatAuthError(data.detail, window.t('app.login_failed')));
     }
   } catch (e) {
     showAuthError(window.t('app.conn_failed'));
@@ -192,7 +208,7 @@ async function handleRegister() {
       document.getElementById('loginPassword').value = password;
       handleLogin();
     } else {
-      showAuthError(data.detail || window.t('app.registration_failed'));
+      showAuthError(formatAuthError(data.detail, window.t('app.registration_failed')));
     }
   } catch (e) {
     showAuthError(window.t('app.conn_failed'));
@@ -277,6 +293,27 @@ function stageClass(stage) {
 
 function escapeHtml(s) {
   return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+// Detects the language of a typed chat message from its actual script,
+// mirroring the backend's own hi/en/hinglish/kn classification (see
+// whisper_service._classify_language) so typed and spoken turns get the
+// same clean detected_language handling instead of the UI's display-
+// language toggle being (wrongly) treated as the message's language.
+function detectTypedLanguage(text, uiLang) {
+  if (!text) return null;
+  const devanagariCount = (text.match(/[ऀ-ॿ]/g) || []).length;
+  const kannadaCount = (text.match(/[ಀ-೿]/g) || []).length;
+  const latinWordCount = (text.match(/[A-Za-z]{2,}/g) || []).length;
+
+  if (kannadaCount >= 4) return "kn";
+  if (devanagariCount >= 4 && latinWordCount >= 1) return "hinglish";
+  if (devanagariCount >= 4) return "hi";
+  // No script signal in the text itself - only for a UI set to Hindi with
+  // no Devanagari at all (Hindi typed in Roman letters) do we guess
+  // hinglish, matching the same edge case the STT pipeline handles.
+  if (uiLang === "hi" && latinWordCount >= 2) return "hinglish";
+  return null;
 }
 
 async function refreshLogs() {
@@ -389,6 +426,54 @@ function copySnippet(id, btn) {
     }, 2000);
   });
 }
+
+// Downloads generated deliverables (docx/pptx/xlsx/csv) via fetch+blob instead of a
+// plain <a href> — a raw cross-origin download link silently fails ("Couldn't
+// download - No file") when the frontend is opened as a local file:// page instead
+// of being served by the FastAPI backend.
+async function downloadDeliverable(url, filename) {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`Server returned ${res.status}`);
+    const blob = await res.blob();
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = filename || "deliverable";
+    a.click();
+    URL.revokeObjectURL(a.href);
+  } catch (err) {
+    console.error("Deliverable download failed:", err);
+    alert(`Download failed: ${err.message}`);
+  }
+}
+
+document.addEventListener("click", (e) => {
+  const btn = e.target.closest("[data-download-url]");
+  if (!btn) return;
+  e.preventDefault();
+  downloadDeliverable(btn.dataset.downloadUrl, btn.dataset.downloadName);
+});
+
+// "Listen" button on assistant replies - reuses the voice assistant's local
+// TTS pipeline (already wired up for spoken replies) so any reply, typed or
+// spoken, can be played back on demand.
+document.addEventListener("click", (e) => {
+  const btn = e.target.closest("[data-tts-msgid]");
+  if (!btn) return;
+  const text = snippetStore[btn.dataset.ttsMsgid] || "";
+  if (!text) {
+    alert("Nothing to read aloud for this message.");
+    return;
+  }
+  if (typeof window.mrplSpeakText !== "function") {
+    // Fails loudly instead of silently doing nothing - this should only
+    // happen if voice-assistant.js failed to load (e.g. a stale cached
+    // copy from before this feature existed - hard-refresh the page).
+    alert("Voice playback isn't available - try reloading the page (Ctrl+Shift+R).");
+    return;
+  }
+  window.mrplSpeakText(text, btn);
+});
 
 function downloadSnippet(id, filename) {
   const code = snippetStore[id] || "";
@@ -551,7 +636,8 @@ function renderDeliverablesHtml(codeResult, docResult, msgId, findings) {
   // 3. Document / Presentation / Spreadsheet Deliverable
   if (docResult && (docResult.output_file || docResult.download_url)) {
     const docName = docResult.output_file || "Deliverable";
-    const dlUrl = docResult.download_url || `/api/download/${docName}`;
+    const downloadPath = docResult.download_url || `/api/download/${encodeURIComponent(docName)}`;
+    const dlUrl = new URL(downloadPath, API).href;
     const fileType = (docResult.file_type || (docName.split('.').pop()) || 'doc').toLowerCase();
     let typeLabel = "Generated on-premise deliverable ready for sign-off";
     let icon = "&#128196;";
@@ -588,9 +674,9 @@ function renderDeliverablesHtml(codeResult, docResult, msgId, findings) {
             <div style="font-size:11px;color:var(--text-dim);">${escapeHtml(typeLabel)}</div>
           </div>
         </div>
-        <a class="chat-deliverable-btn" href="${escapeHtml(dlUrl)}" download="${escapeHtml(docName)}">
+        <button class="chat-deliverable-btn" data-download-url="${escapeHtml(dlUrl)}" data-download-name="${escapeHtml(docName)}">
           &#11015; ${escapeHtml(btnText)}
-        </a>
+        </button>
       </div>
     `;
   }
@@ -621,6 +707,9 @@ function renderDeliverableActionsToolbar(msgId) {
       </button>
       <button class="deliverable-btn" onclick="exportMessageMarkdown('${msgId}')" title="Export deliverable as markdown (.md) file">
         &#128229; Export .md
+      </button>
+      <button class="deliverable-btn tts-btn" data-tts-msgid="${msgId}" title="Listen to this reply">
+        &#128266; Listen
       </button>
     </div>
   `;
@@ -662,14 +751,19 @@ async function sendChatMessage() {
 
   try {
     const form = new FormData();
-        let baseMsg = message || "Please analyze and summarize the attached document(s).";
-    let lang = window.getCurrentLang ? window.getCurrentLang() : 'en';
-    if (lang === 'hi') baseMsg += "\n\n[SYSTEM: You MUST translate and write your entire final response strictly in Hindi.]";
-    else if (lang === 'kn') baseMsg += "\n\n[SYSTEM: You MUST translate and write your entire final response strictly in Kannada.]";
+    const baseMsg = message || "Please analyze and summarize the attached document(s).";
+    // Detect the language of what the user actually typed (not the UI's
+    // display-language toggle, which is a separate, unrelated setting) so
+    // the backend can reply in kind via the same clean detected_language
+    // path the voice assistant already uses, instead of stuffing a raw
+    // instruction into the message text itself.
+    const uiLang = window.getCurrentLang ? window.getCurrentLang() : 'en';
+    const detectedLanguage = voiceLanguage || detectTypedLanguage(message, uiLang);
     form.append("message", baseMsg);
     if (currentSessionId) form.append("session_id", currentSessionId);
     if (activeAgent && activeAgent.id) form.append("agent_id", activeAgent.id);
-    if (voiceLanguage) form.append("detected_language", voiceLanguage);
+    if (detectedLanguage) form.append("detected_language", detectedLanguage);
+    form.append("voice_mode", voiceLanguage ? "true" : "false");
     for (const f of filesToSend) {
       form.append("files", f);
     }
@@ -943,8 +1037,8 @@ async function runDocFlow() {
     addMessageBubble("assistant",
       '<div class="result-heading">Key Findings ' + sourceTag + groundedTag + "</div>" +
       '<ul class="findings">' + data.findings.map(f => "<li>" + escapeHtml(f) + "</li>").join("") + "</ul>" +
-      '<a class="download-link" href="' + API + "/api/outputs/" + data.output_file +
-        '" target="_blank">Download ' + escapeHtml(data.output_file) + "</a>"
+      '<button class="download-link" data-download-url="' + escapeHtml(API + "/api/outputs/" + data.output_file) +
+        '" data-download-name="' + escapeHtml(data.output_file) + '">Download ' + escapeHtml(data.output_file) + "</button>"
     );
   } catch (err) {
     console.error(err);

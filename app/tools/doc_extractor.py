@@ -57,18 +57,27 @@ def extract_text_from_pdf(path: str) -> str:
 
     return ""
 
+def is_image_file(path: str, filename: str = "", mime_type: str = "") -> bool:
+    """Shared image-detection check, also used by the orchestrator to decide
+    whether to route an attachment through the CV engineering-drawing
+    pipeline in addition to OCR."""
+    mime = (mime_type or "").lower()
+    base_name = os.path.basename(path).lower()
+    custom_name = (filename or "").lower()
+    return (mime.startswith("image/")) or any(
+        base_name.endswith(ext) or custom_name.endswith(ext) or (f"{ext} " in custom_name) or (f"{ext}(" in custom_name)
+        for ext in [".png", ".jpg", ".jpeg", ".bmp", ".tiff", ".webp"]
+    )
+
+
 def extract_file_content(path: str, filename: str = "", mime_type: str = "", content_type: str = "", **kwargs) -> str:
     """Extract readable text from any supported file type."""
     mime = (mime_type or content_type or "").lower()
     base_name = os.path.basename(path).lower()
     custom_name = (filename or "").lower()
-    
+
     # Images -> OCR (Tesseract)
-    is_img = (mime.startswith("image/")) or any(
-        base_name.endswith(ext) or custom_name.endswith(ext) or (f"{ext} " in custom_name) or (f"{ext}(" in custom_name)
-        for ext in [".png", ".jpg", ".jpeg", ".bmp", ".tiff", ".webp"]
-    )
-    if is_img:
+    if is_image_file(path, filename=filename, mime_type=mime):
         return ocr_image(path)
         
     # PDF documents
