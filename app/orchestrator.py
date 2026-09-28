@@ -416,6 +416,7 @@ def run_chat_flow(
     excel_triggers = ["excel", "xlsx", "spreadsheet", "sheet", "tabular excel"]
     csv_triggers = ["csv", "comma separated", "export csv", "save as csv"]
     docx_triggers = [
+        "docx", "document", "doc ", "word file",
         "approval note", "draft note", "generate document", "create docx",
         "formal report", "formal note", "deliverable", "export to word",
         "generate approval", "draft report", "create deliverable", "word doc"
