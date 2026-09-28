@@ -81,6 +81,7 @@ def add_document_context(
     raw_text: str,
     findings: list[str],
     summary: str = "",
+    cv_evidence: dict | None = None,
 ) -> dict:
     data = load(session_id)
     if not data:
@@ -97,6 +98,8 @@ def add_document_context(
         "summary": summary,
         "stored_at": int(time.time()),
     }
+    if cv_evidence is not None:
+        doc_record["cv_evidence"] = cv_evidence
     existing_idx = next(
         (i for i, d in enumerate(data["documents"]) if d.get("source_name") == source_name),
         -1
@@ -121,8 +124,9 @@ def set_document_context(
     raw_text: str,
     findings: list[str],
     summary: str = "",
+    cv_evidence: dict | None = None,
 ) -> None:
-    add_document_context(session_id, source_name, raw_text, findings, summary)
+    add_document_context(session_id, source_name, raw_text, findings, summary, cv_evidence=cv_evidence)
 
 def get_document_context(session_id: str) -> dict | None:
     data = load(session_id)

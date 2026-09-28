@@ -20,7 +20,8 @@ from . import config
 from . import model_router
 from .activity_log import log_step
 from .tools.ocr_tool import ocr_image
-from .tools.doc_extractor import extract_file_content
+from .tools.doc_extractor import extract_file_content, is_image_file
+from .tools.cv_pipeline_tool import analyze_engineering_drawing
 from .tools.sandbox_tool import run_in_sandbox
 from .tools.docgen_tool import draft_approval_note, generate_summary_document
 from .tools.deliverable_builder import generate_presentation, generate_spreadsheet, parse_tabular_data
@@ -191,15 +192,17 @@ def run_chat_flow(
     attachments: list[dict] | None = None,
     agent_id: str | None = None,
     detected_language: str | None = None,
+    voice_mode: bool = False,
 ) -> dict:
     """General-purpose chat: answer a free-form question with multi-document and agent support.
 
     If an agent_id is provided, the agent's domain SKILL.md, system prompt,
     and permitted tools are dynamically bound to the execution pipeline.
 
-    detected_language ("hi"/"en") comes from the voice assistant's STT
-    step when this turn originated as speech; it is None for typed
-    messages, which keeps the existing text-chat behavior unchanged.
+    detected_language ("hi"/"en"/"hinglish"/"kn") tells the model which
+    language to reply in - set for both typed and spoken turns now.
+    voice_mode is only true when this turn actually originated from the
+    voice assistant, and additionally shortens the reply for TTS.
     """
     task_id = str(uuid.uuid4())[:8]
     if not session_id or chat_store.load(session_id) is None:
@@ -253,6 +256,19 @@ def run_chat_flow(
             {"chars": len(text)},
         )
 
+        cv_evidence = None
+        if config.USE_CV_PIPELINE and is_image_file(a_path, filename=a_name, mime_type=a_type):
+            log_step(task_id, "route", f"Routing '{a_name}' through the CV engineering-drawing pipeline")
+            cv_evidence = analyze_engineering_drawing(a_path)
+            if cv_evidence:
+                log_step(
+                    task_id, "tool:cv_pipeline",
+                    f"CV pipeline verified {len(cv_evidence.get('verified_entities', []))} entities and "
+                    f"{len(cv_evidence.get('verified_connections', []))} connections in '{a_name}'",
+                )
+            else:
+                log_step(task_id, "tool:cv_pipeline", f"CV pipeline unavailable/failed for '{a_name}' — using OCR text only")
+
         doc_kb = ""
         if config.USE_KNOWLEDGE_BASE and text:
             doc_kb = retrieve_context(text)
@@ -274,6 +290,7 @@ def run_chat_flow(
             raw_text=text,
             findings=findings,
             summary=f"Extracted {len(findings)} observations from {a_name}",
+            cv_evidence=cv_evidence,
         )
         log_step(
             task_id, "tool:memory",
@@ -527,6 +544,7 @@ def run_chat_flow(
         doc_context=doc_context,
         documents=all_session_docs,
         detected_language=detected_language,
+        voice_mode=voice_mode,
     )
 
     if generate_chat_document:
@@ -589,4 +607,5 @@ def run_chat_flow(
         "doc_result": doc_deliverable,
         "text_deliverable": text_deliverable,
         "agent": active_agent,
+        "detected_language": detected_language,
     }

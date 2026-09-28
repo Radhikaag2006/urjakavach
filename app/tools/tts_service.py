@@ -19,6 +19,7 @@ from .. import config
 _MODEL_IDS = {
     "en": "facebook/mms-tts-eng",
     "hi": "facebook/mms-tts-hin",
+    "kn": "facebook/mms-tts-kan",
 }
 
 _models: dict[str, object] = {}

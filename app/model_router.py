@@ -154,12 +154,15 @@ def chat(
     doc_context: dict | None = None,
     documents: list[dict] | None = None,
     detected_language: str | None = None,
+    voice_mode: bool = False,
 ) -> tuple[str, str]:
     """General-purpose chat reply, grounded on kb_context/attached_text/doc_context
     or multiple session documents. Returns (reply, source).
 
-    detected_language ("hi"/"en"), when set, tells the model to reply in
-    that language — used for voice-originated turns."""
+    detected_language ("hi"/"en"/"hinglish"/"kn"), when set, tells the model
+    to reply in that language regardless of whether the turn was typed or
+    spoken. voice_mode additionally shortens the reply for text-to-speech —
+    only true for turns that actually originated from the voice assistant."""
     if config.USE_REAL_MODEL:
         try:
             messages = prompts.build_chat_prompt(
@@ -169,8 +172,9 @@ def chat(
                 doc_context=doc_context,
                 documents=documents,
                 detected_language=detected_language,
+                voice_mode=voice_mode,
             )
-            max_tokens = config.VOICE_MODEL_MAX_TOKENS if detected_language else None
+            max_tokens = config.VOICE_MODEL_MAX_TOKENS if voice_mode else None
             reply = _call_model("reasoning", messages, max_tokens=max_tokens)
             if reply.strip():
                 return reply, "model"
