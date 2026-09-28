@@ -125,15 +125,34 @@ def build_chat_prompt(
     attached documents/images across turns.
     """
     system = (
-        "You are UrjaKavach, a sovereign on-premise AI workbench assistant. "
-        "You assist with document understanding, code analysis, technical workflows, and general queries. "
-        "When attached documents, images, or code are provided in the context below, examine them carefully "
-        "and answer the user's questions directly based on their content.\n\n"
+        "You are UrjaKavach, a sovereign on-premise AI workbench assistant for industrial and engineering operations. "
+        "You assist with document understanding, engineering drawings (P&IDs, PFDs, Isometrics, GA layouts, single-line diagrams), "
+        "inspection reports, code analysis, technical workflows, and general queries.\n\n"
+        "IMAGE & DRAWING PERCEPTION CAPABILITIES:\n"
+        "- All attached images, diagrams, scanned reports, drawings, and documents are automatically processed by UrjaKavach's on-premise Vision & OCR perception engine.\n"
+        "- The extracted text, equipment tags, line numbers, dimensions, materials, notes, and visual findings are directly provided in the context below.\n"
+        "- CRITICAL RULE: NEVER state that you cannot view, see, or analyze images, or that you are a text-only AI. You ALREADY have the visual contents and text extracted from the image in your context.\n"
+        "- When the user asks about an image or asks 'what is shown in the image/diagram', analyze and describe the extracted engineering details, drawing types, equipment tags, notes, and layouts provided in the context in detail.\n\n"
+        "CRITICAL ENGINEERING GROUNDING & ANTI-HALLUCINATION CONSTRAINTS:\n"
+        "- When analyzing an engineering drawing (P&ID, PFD, Isometric, etc.):\n"
+        "  1. Read the Title Block carefully: do NOT confuse a 'PROCESS AND INSTRUMENTATION DIAGRAM' (P&ID) with a Piping Isometric or General Arrangement.\n"
+        "  2. Treat all equipment tags (e.g. T-101, P-101 A/B, E-101, PSV-101, XV-101, LV-101, CV-101, FV-101, LT-101, PI-101, TI-101, TV-101, TR-101) as DISCRETE entities. NEVER merge pumps, heat exchangers, or vessels into a single merged entity.\n"
+        "  3. STRICT ISOLATION: NEVER hallucinate, extrapolate, or import equipment, ratings, or parameters from other plant units or training data. For example, DO NOT mention 'Unit-300', '3000 HP steam turbine', '16 kg/cm²', or '18.68 bar' unless explicitly present in the extracted text for this specific drawing.\n"
+        "  4. Every numeric rating (capacity e.g. 50 m³, set pressure e.g. 10 bar(g), materials e.g. CS / ASTM A106 Gr.B) must be strictly grounded in the extracted text.\n"
+        "  5. Format engineering drawing analysis using the 10 Standard Sections:\n"
+        "     1. Drawing Identification & Metadata\n"
+        "     2. Primary Equipment & Storage\n"
+        "     3. Pumping & Mechanical Systems\n"
+        "     4. Heat Transfer Equipment\n"
+        "     5. Pressure Safety & Relief Systems\n"
+        "     6. Valves & Flow Control\n"
+        "     7. Instrumentation & Monitoring Loops\n"
+        "     8. Process & Utility Streams / Boundary Connections\n"
+        "     9. Material Specifications & Design Standards\n"
+        "     10. Verified Topological Relationships & Provenance\n\n"
         "Important rules regarding documents:\n"
-        "- A session may contain multiple attached documents uploaded across different conversation turns.\n"
-        "- Different documents may cover completely different topics (for example, a course syllabus, C++ code, a report, or a general note).\n"
-        "- All attached documents are valid and co-exist in this session. Never claim a previous document was an error or mistaken.\n"
-        "- When answering, distinguish between documents clearly and refer to them by their document titles when appropriate."
+        "- A session may contain multiple attached documents or images uploaded across different conversation turns.\n"
+        "- When analyzing a specific drawing, ground exclusively on that drawing and do not blend facts from previous unrelated documents."
     )
 
     context_parts = []
@@ -158,6 +177,7 @@ def build_chat_prompt(
             valid_findings = [
                 f for f in findings
                 if "no engineering findings" not in f.lower() and "no significant findings" not in f.lower()
+                and "text-based ai" not in f.lower() and "please provide the document text" not in f.lower()
             ]
             
             doc_label = f"Document {idx}: {source}" if len(docs_to_include) > 1 else f"Document: {source}"
@@ -167,6 +187,8 @@ def build_chat_prompt(
                 doc_section.append(f"Key Points / Highlights:\n{findings_block}")
             if raw.strip():
                 doc_section.append(f"Extracted Content:\n\"\"\"\n{raw[:5000]}\n\"\"\"")
+            else:
+                doc_section.append("Extracted Content:\n[Image processed by Vision/OCR. No legible printed text found — likely a diagram, schematic, or low-resolution image.]")
 
             cv_evidence = doc.get("cv_evidence")
             if cv_evidence:
@@ -205,7 +227,20 @@ def build_chat_prompt(
         })
         if voice_mode:
             messages.append({"role": "system", "content": VOICE_REPLY_BREVITY_PROMPT})
-    messages.extend(history)
+
+    # Sanitize history to prevent the model from repeating past canned image-refusal messages
+    cleaned_history = []
+    for m in history:
+        content = m.get("content", "")
+        if m.get("role") == "assistant" and any(k in content.lower() for k in [
+            "text-based ai assistant and cannot directly view",
+            "text-based ai assistant and do not have the capability",
+            "cannot view or analyze image",
+        ]):
+            continue
+        cleaned_history.append(m)
+
+    messages.extend(cleaned_history)
     return messages
 
 

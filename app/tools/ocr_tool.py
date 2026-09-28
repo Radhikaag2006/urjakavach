@@ -37,4 +37,43 @@ def ocr_image(image_path: str) -> str:
             "  Windows: install the UB-Mannheim build and add it to PATH"
         ) from e
 
+    # If simple OCR yielded little to no text, try image preprocessing
+    if len(text.strip()) < 15:
+        # Pass 1: Try cv2 grayscale + Otsu thresholding / adaptive thresholding
+        try:
+            import cv2
+            import numpy as np
+            cv_img = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
+            if cv_img is not None:
+                # Upscale if low resolution
+                h, w = cv_img.shape[:2]
+                if w < 1000 or h < 1000:
+                    cv_img = cv2.resize(cv_img, (w * 2, h * 2), interpolation=cv2.INTER_CUBIC)
+                
+                # Otsu binarization
+                _, thresh = cv2.threshold(cv_img, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+                t_otsu = pytesseract.image_to_string(thresh, config="--psm 6").strip()
+                if len(t_otsu) > len(text):
+                    text = t_otsu
+                
+                # Sparse text mode for engineering schematics
+                if len(text.strip()) < 15:
+                    t_sparse = pytesseract.image_to_string(cv_img, config="--psm 11").strip()
+                    if len(t_sparse) > len(text):
+                        text = t_sparse
+        except Exception:
+            pass
+
+        # Pass 2: PIL contrast enhancement fallback
+        if len(text.strip()) < 15:
+            try:
+                from PIL import ImageEnhance, ImageFilter
+                enhanced = img.convert("L")
+                enhanced = ImageEnhance.Contrast(enhanced).enhance(2.0)
+                t_pil = pytesseract.image_to_string(enhanced).strip()
+                if len(t_pil) > len(text):
+                    text = t_pil
+            except Exception:
+                pass
+
     return text.strip()

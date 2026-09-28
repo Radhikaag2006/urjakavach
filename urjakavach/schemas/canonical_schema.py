@@ -100,6 +100,16 @@ class EngineeringEntity(BaseModel):
     attributes: Dict[str, Any] = Field(default_factory=dict, description="Domain attributes (e.g. 'valve_type': 'gate', 'diameter': '4in')")
     source: ProvenanceSource
 
+class EvidenceFact(BaseModel):
+    """Drawing-scoped explicit evidence fact with strict provenance."""
+    fact: str
+    source: Literal["ocr", "cv", "geometry", "fusion"]
+    confidence: float = Field(ge=0.0, le=1.0)
+    source_region: List[int] = Field(default_factory=list)
+    evidence_text: str = ""
+    status: Literal["OBSERVATION", "INFERENCE", "ENGINEERING_FACT"] = "OBSERVATION"
+    target_entity_id: Optional[str] = None
+
 class DimensionObservation(BaseModel):
     """Engineering dimension annotation linking numerical value with geometric leader."""
     id: str
@@ -131,15 +141,33 @@ class Relationship(BaseModel):
     ]
     target_id: str
     confidence: float = Field(default=1.0, ge=0.0, le=1.0)
+    status: Literal["OBSERVATION", "INFERENCE", "ENGINEERING_FACT"] = "OBSERVATION"
     evidence: Dict[str, Any] = Field(
         default_factory=dict,
         description="Physical/geometric evidence (e.g. intersection point, shared endpoint distance, leader line path)"
     )
 
+CONTROLLED_DOCUMENT_TYPES = [
+    "P&ID",
+    "Piping Isometric",
+    "General Arrangement",
+    "Plot Plan / Site Layout",
+    "Piping Layout",
+    "Equipment Layout",
+    "Pipe Support Detail",
+    "Instrumentation Layout",
+    "Foundation Drawing",
+    "Revision / Title Block",
+    "Unknown",
+]
+
 class DocumentMetadata(BaseModel):
-    document_type: str = Field(default="UNKNOWN", description="PID, PFD, ELECTRICAL_SCHEMATIC, MECHANICAL_ASSEMBLY, SPECIFICATION_SHEET")
+    document_type: str = Field(default="Unknown", description="Controlled drawing type e.g. P&ID, Piping Isometric, General Arrangement...")
     drawing_number: Optional[str] = None
     title: Optional[str] = None
+    unit_number: Optional[str] = None
+    project_name: Optional[str] = None
+    system_name: Optional[str] = None
     revision: Optional[str] = None
     sheet_number: Optional[str] = None
     total_sheets: Optional[str] = None
@@ -150,6 +178,24 @@ class DocumentMetadata(BaseModel):
     source_file: str
     original_width: int
     original_height: int
+    classification_confidence: float = 1.0
+    classification_evidence: Optional[Dict[str, Any]] = None
+
+class DrawingEvidencePackage(BaseModel):
+    """Self-contained, drawing-isolated evidence package passed to the local LLM."""
+    document_id: str
+    metadata: DocumentMetadata
+    regional_ocr_text: Dict[str, List[Dict[str, Any]]] = Field(default_factory=dict)
+    detected_entities: List[Dict[str, Any]] = Field(default_factory=list)
+    detected_symbols: List[Dict[str, Any]] = Field(default_factory=list)
+    instrument_tags: List[Dict[str, Any]] = Field(default_factory=list)
+    dimensions: List[Dict[str, Any]] = Field(default_factory=list)
+    specifications: List[Dict[str, Any]] = Field(default_factory=list)
+    line_geometry: List[Dict[str, Any]] = Field(default_factory=list)
+    topology_observations: List[Dict[str, Any]] = Field(default_factory=list)
+    topology_inferences: List[Dict[str, Any]] = Field(default_factory=list)
+    evidence_facts: List[EvidenceFact] = Field(default_factory=list)
+    notes_and_standards: List[str] = Field(default_factory=list)
 
 class CanonicalEngineeringDocument(BaseModel):
     """Root canonical representation of an engineering document."""
@@ -163,6 +209,7 @@ class CanonicalEngineeringDocument(BaseModel):
     tables: List[TableObservation] = Field(default_factory=list)
     dimensions: List[DimensionObservation] = Field(default_factory=list)
     relationships: List[Relationship] = Field(default_factory=list)
+    evidence_facts: List[EvidenceFact] = Field(default_factory=list)
 
     def to_json_dict(self) -> Dict[str, Any]:
         return self.model_dump(mode="json")

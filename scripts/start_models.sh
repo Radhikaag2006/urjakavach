@@ -11,8 +11,11 @@ set -e
 
 MODEL_DIR="${1:-./models}"
 
-REASONING_MODEL="$MODEL_DIR/Llama-3.2-3B-Instruct-Q4_K_M.gguf"
-CODE_MODEL="$MODEL_DIR/Qwen2.5-Coder-1.5B-Instruct-Q4_K_M.gguf"
+REASONING_MODEL="$MODEL_DIR/llama-3.2-3b-instruct-q4_k_m.gguf"
+[ ! -f "$REASONING_MODEL" ] && REASONING_MODEL="$MODEL_DIR/Llama-3.2-3B-Instruct-Q4_K_M.gguf"
+
+CODE_MODEL="$MODEL_DIR/qwen2.5-coder-1.5b-instruct-q4_k_m.gguf"
+[ ! -f "$CODE_MODEL" ] && CODE_MODEL="$MODEL_DIR/Qwen2.5-Coder-1.5B-Instruct-Q4_K_M.gguf"
 
 if ! command -v llama-server >/dev/null 2>&1; then
   echo "ERROR: llama-server not found."

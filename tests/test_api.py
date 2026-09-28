@@ -18,7 +18,7 @@ client = TestClient(app)
 # ---------------------------------------------------------------------------
 # Auth helpers — register a test user once per module and share the token
 # ---------------------------------------------------------------------------
-_TEST_IDENTIFIER = "testuser@urjakavach.local"
+_TEST_IDENTIFIER = "testuser@mrpl.in"
 _TEST_PASSWORD   = "testpassword123"
 
 def _get_test_token() -> str:
@@ -28,6 +28,7 @@ def _get_test_token() -> str:
             _TEST_IDENTIFIER, _TEST_PASSWORD,
             name="Test User", profession="Engineer",
             country="India", emp_code="123456", github_id="testgithub",
+            is_mrpl_employee=True,
         )
     except ValueError:
         pass  # already registered

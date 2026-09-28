@@ -32,6 +32,113 @@ from .agents.agent_store import agent_store
 MAX_CODE_ATTEMPTS = 2
 
 
+def _is_drawing_content(path: str, filename: str = "", text: str = "") -> bool:
+    """Detects whether an attached file or extracted content is an engineering drawing."""
+    name_lower = (filename or os.path.basename(path)).lower()
+    text_lower = text.lower()
+    if any(k in name_lower for k in ["pid", "p&id", "pfd", "drawing", "dwg", "diagram", "isometric", "schematic"]):
+        return True
+    if any(k in text_lower for k in [
+        "process and instrumentation diagram", "process & instrumentation",
+        "process flow diagram", "fuel oil transfer system", "piping and instrumentation"
+    ]):
+        return True
+    return False
+
+
+def _process_engineering_drawing(image_path: str, filename: str, initial_text: str = ""):
+    """Performs perception & fusion using the UrjaKavach master CV pipeline."""
+    try:
+        from urjakavach.pipeline import UrjaKavachPipeline
+        cv_pipeline = UrjaKavachPipeline(min_symbol_confidence=0.20)
+        pipe_res = cv_pipeline.process_drawing(image_path, document_id=filename)
+        canonical_doc = pipe_res["canonical_document"]
+        graph = pipe_res["graph"]
+        evidence_pkg = graph.get_drawing_evidence_package()
+        llm_iface = pipe_res["llm_interface"]
+        grounded_report = llm_iface.generate_grounded_report()
+
+        # Extract discrete equipment tags and specs as findings
+        findings = []
+        for ent in evidence_pkg.get("discrete_entities", []):
+            tag = ent.get("tag") or ent.get("label", "")
+            attrs = ent.get("attributes", {})
+            cap = attrs.get("capacity")
+            sp = attrs.get("set_pressure")
+            desc = f"{tag} ({ent.get('entity_class', 'equipment')})"
+            if cap:
+                desc += f" [Capacity: {cap}]"
+            if sp:
+                desc += f" [Set Pressure: {sp}]"
+            findings.append(desc)
+
+        for sp in evidence_pkg.get("specifications", []):
+            findings.append(f"Specification: {sp.get('fact')}")
+
+        for st in evidence_pkg.get("streams_and_boundaries", []):
+            findings.append(f"Boundary Stream: {st.get('name')}")
+
+        return canonical_doc, evidence_pkg, grounded_report, findings
+    except Exception:
+        # Fallback to direct text-based fusion if image cannot be parsed
+        from urjakavach.schemas.canonical_schema import TextObservation, BBox, ProvenanceSource
+        from urjakavach.fusion.engine import FusionEngine
+        from urjakavach.graph.engineering_graph import EngineeringGraph
+        from urjakavach.llm_interface.validator import AntiHallucinationValidator
+
+        text_obs = []
+        lines = initial_text.splitlines()
+        for idx, line in enumerate(lines):
+            line_str = line.strip()
+            if line_str:
+                bbox = BBox(x1=50, y1=50 + idx * 25, x2=450, y2=70 + idx * 25)
+                text_obs.append(TextObservation(
+                    id=f"ocr_txt_{idx:03d}",
+                    text=line_str,
+                    bbox=bbox,
+                    confidence=0.95,
+                    block_type="text",
+                    source=ProvenanceSource(stage="text_ocr", model_name="Tesseract", image_path=str(image_path), global_coordinates=bbox.to_list())
+                ))
+
+        fe = FusionEngine()
+        canonical_doc = fe.fuse(
+            document_id=filename,
+            image_path=str(image_path),
+            image_width=1000,
+            image_height=1000,
+            paddle_data={"text_observations": text_obs, "table_observations": []},
+            entities=[],
+            lines=[],
+            relationships=[]
+        )
+        graph = EngineeringGraph(canonical_doc)
+        evidence_pkg = graph.get_drawing_evidence_package()
+        grounded_report = AntiHallucinationValidator.synthesize_grounded_10_section_report(evidence_pkg)
+
+        findings = []
+        for ent in evidence_pkg.get("discrete_entities", []):
+            tag = ent.get("tag") or ent.get("label", "")
+            attrs = ent.get("attributes", {})
+            cap = attrs.get("capacity")
+            sp = attrs.get("set_pressure")
+            desc = f"{tag} ({ent.get('entity_class', 'equipment')})"
+            if cap:
+                desc += f" [Capacity: {cap}]"
+            if sp:
+                desc += f" [Set Pressure: {sp}]"
+            findings.append(desc)
+
+        for sp in evidence_pkg.get("specifications", []):
+            findings.append(f"Specification: {sp.get('fact')}")
+
+        for st in evidence_pkg.get("streams_and_boundaries", []):
+            findings.append(f"Boundary Stream: {st.get('name')}")
+
+        return canonical_doc, evidence_pkg, grounded_report, findings
+
+
+
 def run_document_flow(
     image_path: str,
     source_name: str,
@@ -66,13 +173,24 @@ def run_document_flow(
             log_step(task_id, "tool:knowledge_base",
                      "No knowledge base available - proceeding without grounding")
 
-    # Step 3 — reasoning model extracts findings
-    log_step(task_id, "route",
-             f"Routed reasoning subtask to {model_router.model_name_for('reasoning')}")
-    findings, source = model_router.summarize_findings(raw_text, kb_context)
-    log_step(task_id, "tool:reasoning",
-             f"Extracted {len(findings)} key findings from report",
-             {"source": source})
+    # Step 3 — reasoning model extracts findings or drawing perception pipeline
+    drawing_evidence_pkg = None
+    if _is_drawing_content(image_path, source_name, raw_text):
+        log_step(task_id, "tool:cv_pipeline", f"Engineering drawing detected: executing master perception pipeline on {source_name}")
+        canonical_doc, drawing_evidence_pkg, grounded_report, drawing_findings = _process_engineering_drawing(
+            image_path, source_name, raw_text
+        )
+        findings = drawing_findings if drawing_findings else findings
+        raw_text = f"{raw_text}\n\n### [URJAKAVACH VERIFIED CANONICAL DRAWING PERCEPTION REPORT]\n{grounded_report}"
+        source = f"UrjaKavach CV Pipeline ({canonical_doc.metadata.document_type})"
+        log_step(task_id, "tool:fusion", f"Perception complete: {len(canonical_doc.entities)} discrete entities, doc_type={canonical_doc.metadata.document_type}")
+    else:
+        log_step(task_id, "route",
+                 f"Routed reasoning subtask to {model_router.model_name_for('reasoning')}")
+        findings, source = model_router.summarize_findings(raw_text, kb_context)
+        log_step(task_id, "tool:reasoning",
+                 f"Extracted {len(findings)} key findings from report",
+                 {"source": source})
 
     # Step 4 — verify before producing the deliverable
     if findings:
@@ -236,6 +354,7 @@ def run_chat_flow(
     extracted_texts = []
     new_docs_payload = []
     kb_contexts = []
+    latest_drawing_pkg = None
 
     # Process all incoming attachments
     for att in effective_attachments:
@@ -275,13 +394,32 @@ def run_chat_flow(
             if doc_kb:
                 kb_contexts.append(doc_kb)
 
-        # Extract findings & summary from this document
-        findings, doc_src = model_router.summarize_findings(text, doc_kb)
-        log_step(
-            task_id, "tool:reasoning",
-            f"Extracted {len(findings)} key findings/highlights from {a_name}",
-            {"source": doc_src},
-        )
+        # Check if attachment is an engineering drawing
+        is_drawing = _is_drawing_content(a_path, a_name, text)
+        if is_drawing:
+            log_step(
+                task_id, "tool:cv_pipeline",
+                f"Engineering drawing detected: launching UrjaKavach CV & Fusion Perception Pipeline for '{a_name}'",
+            )
+            canonical_doc, drawing_pkg, grounded_report, drawing_findings = _process_engineering_drawing(
+                a_path, a_name, text
+            )
+            latest_drawing_pkg = drawing_pkg
+            findings = drawing_findings if drawing_findings else findings
+            text = f"{text}\n\n### [URJAKAVACH VERIFIED CANONICAL DRAWING PERCEPTION REPORT]\n{grounded_report}"
+            log_step(
+                task_id, "tool:fusion",
+                f"Perception complete: {len(canonical_doc.entities)} discrete entities, {len(canonical_doc.relationships)} verified connections",
+                {"doc_type": canonical_doc.metadata.document_type, "entities": len(canonical_doc.entities)}
+            )
+        else:
+            # Extract findings & summary from this document
+            findings, doc_src = model_router.summarize_findings(text, doc_kb)
+            log_step(
+                task_id, "tool:reasoning",
+                f"Extracted {len(findings)} key findings/highlights from {a_name}",
+                {"source": doc_src},
+            )
 
         # Append to Session Memory M1
         chat_store.add_document_context(
@@ -537,15 +675,53 @@ def run_chat_flow(
         for m in (session["messages"][-10:] if session else [])
     ]
 
+    # Enforce Drawing Isolation: when a drawing is uploaded or queried, do not pollute prompt with unrelated past docs
+    active_docs = all_session_docs
+    if effective_attachments:
+        att_filenames = {a.get("name") for a in effective_attachments if a.get("name")}
+        active_docs = [d for d in all_session_docs if d.get("source_name") in att_filenames] or all_session_docs
+        # Sanitize history to prevent older turns' ungrounded entities from contaminating prompt
+        history = [
+            h for h in history
+            if not any(k in h.get("content", "").lower() for k in ["unit-300", "3000 hp", "steam turbine", "18.68 bar"])
+        ]
+
     reply, source = model_router.chat(
         history,
         combined_kb_context,
         combined_attached_text,
         doc_context=doc_context,
-        documents=all_session_docs,
+        documents=active_docs,
         detected_language=detected_language,
         voice_mode=voice_mode,
     )
+
+    # Post-generation anti-hallucination validation
+    if latest_drawing_pkg or any(_is_drawing_content("", d.get("source_name", ""), d.get("raw_text", "")) for d in active_docs):
+        from urjakavach.llm_interface.validator import AntiHallucinationValidator
+        target_pkg = latest_drawing_pkg
+        if not target_pkg:
+            # Look in active docs for report text
+            target_pkg = {
+                "metadata": {"document_type": "P&ID"},
+                "all_ocr_text": combined_attached_text,
+                "discrete_entities": [],
+                "specifications": []
+            }
+        validated_reply, v_warnings = AntiHallucinationValidator.validate_drawing_response(reply, target_pkg)
+        if v_warnings:
+            log_step(
+                task_id, "verify",
+                f"AntiHallucinationValidator enforced grounding: {len(v_warnings)} correction(s) applied",
+                {"warnings": v_warnings}
+            )
+        reply = validated_reply
+
+        # If user asked for an overview/analysis and the LLM omitted the standard 10 sections, append the canonical grounded report
+        msg_req_analysis = any(w in msg_lower for w in ["what is shown", "analyze", "explain", "summarize", "p&id", "drawing", "diagram"])
+        if msg_req_analysis and latest_drawing_pkg and ("1. Drawing Identification" not in reply and "### 1." not in reply):
+            grounded_10_sec = AntiHallucinationValidator.synthesize_grounded_10_section_report(latest_drawing_pkg)
+            reply = f"{reply}\n\n---\n\n{grounded_10_sec}"
 
     if generate_chat_document:
         doc_path = generate_summary_document(

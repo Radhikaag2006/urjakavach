@@ -31,11 +31,76 @@ class PaddleVLExtractor:
             self._pipeline = PaddleOCRVL()
 
     def process_image(self, image_path: Union[str, Path]) -> Dict[str, Any]:
-        """Runs live PaddleOCR-VL inference on an image file."""
-        self._ensure_pipeline()
+        """Runs live PaddleOCR-VL inference on an image file with graceful OCR fallback."""
         image_path = Path(image_path)
-        res_list = self._pipeline.predict(str(image_path), use_ocr_for_image_block=self.use_ocr_for_image_block)
-        return self.parse_raw_result(res_list[0], str(image_path))
+        try:
+            self._ensure_pipeline()
+            res_list = self._pipeline.predict(str(image_path), use_ocr_for_image_block=self.use_ocr_for_image_block)
+            return self.parse_raw_result(res_list[0], str(image_path))
+        except Exception as e:
+            # Fallback to pytesseract layout extraction
+            return self._tesseract_fallback(image_path)
+
+    def _tesseract_fallback(self, image_path: Path) -> Dict[str, Any]:
+        """Air-gapped / offline fallback when PaddleOCRVL models are not cached."""
+        import pytesseract
+        from PIL import Image
+        img = Image.open(image_path).convert("RGB")
+        w, h = img.size
+        
+        text_obs = []
+        try:
+            data = pytesseract.image_to_data(img, output_type=pytesseract.Output.DICT)
+            n_boxes = len(data["text"])
+            curr_line = []
+            curr_box = None
+            
+            for i in range(n_boxes):
+                word = data["text"][i].strip()
+                if not word:
+                    continue
+                x, y, bw, bh = data["left"][i], data["top"][i], data["width"][i], data["height"][i]
+                bbox = BBox(x1=x, y1=y, x2=x + bw, y2=y + bh)
+                text_obs.append(TextObservation(
+                    id=f"ocr_text_{len(text_obs):04d}",
+                    text=word,
+                    bbox=bbox,
+                    confidence=float(data["conf"][i]) / 100.0 if data["conf"][i] > 0 else 0.9,
+                    block_type="text",
+                    source=ProvenanceSource(
+                        stage="paddleocr_vl_fallback",
+                        model_name="TesseractFallback",
+                        image_path=str(image_path),
+                        global_coordinates=bbox.to_list()
+                    )
+                ))
+        except Exception:
+            # Minimal single block fallback
+            raw = pytesseract.image_to_string(img).strip()
+            if raw:
+                text_obs.append(TextObservation(
+                    id="ocr_text_0000",
+                    text=raw,
+                    bbox=BBox(x1=0, y1=0, x2=w, y2=h),
+                    confidence=0.9,
+                    block_type="text",
+                    source=ProvenanceSource(
+                        stage="paddleocr_vl_fallback",
+                        model_name="TesseractFallback",
+                        image_path=str(image_path),
+                        global_coordinates=[0, 0, w, h]
+                    )
+                ))
+
+        return {
+            "image_path": str(image_path),
+            "width": w,
+            "height": h,
+            "layout_boxes": [],
+            "text_observations": text_obs,
+            "table_observations": [],
+            "drawing_roi": [[0, 0, w, h]]
+        }
 
     def load_cached_result(self, raw_result_json_path: Union[str, Path], image_path: str) -> Dict[str, Any]:
         """Loads and normalizes an existing raw_result.json (regression test baseline)."""
