@@ -1,0 +1,159 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "UrjaKavachCanonicalEngineeringDocument",
+  "description": "Canonical engineering document representation combining PaddleOCR-VL document parsing with downstream Engineering-CV primitives",
+  "type": "object",
+  "required": [
+    "document_metadata",
+    "document_layout",
+    "text",
+    "tables",
+    "engineering_entities",
+    "connections",
+    "dimensions"
+  ],
+  "properties": {
+    "document_metadata": {
+      "type": "object",
+      "description": "Extracted via PaddleOCR-VL layout & table parsing, mapped via Title Block KIE",
+      "properties": {
+        "document_type": {
+          "type": "string",
+          "enum": ["PID", "PFD", "ELECTRICAL_SCHEMATIC", "MECHANICAL_ASSEMBLY", "SPECIFICATION_TABLE", "UNKNOWN"]
+        },
+        "drawing_number": {"type": ["string", "null"]},
+        "title": {"type": ["string", "null"]},
+        "revision": {"type": ["string", "null"]},
+        "sheet": {"type": ["string", "null"]},
+        "units": {"type": ["string", "null"]}
+      }
+    },
+    "document_layout": {
+      "type": "array",
+      "description": "Direct output from PaddleOCR-VL PP-DocLayoutV3",
+      "items": {
+        "type": "object",
+        "properties": {
+          "label": {"type": "string"},
+          "confidence": {"type": "number"},
+          "bbox": {
+            "type": "array",
+            "items": {"type": "integer"},
+            "minItems": 4,
+            "maxItems": 4
+          }
+        },
+        "required": ["label", "confidence", "bbox"]
+      }
+    },
+    "text": {
+      "type": "array",
+      "description": "Extracted text blocks from PaddleOCR-VL OCR parsing",
+      "items": {
+        "type": "object",
+        "properties": {
+          "text": {"type": "string"},
+          "bbox": {
+            "type": "array",
+            "items": {"type": "integer"},
+            "minItems": 4,
+            "maxItems": 4
+          },
+          "confidence": {"type": ["number", "null"]},
+          "block_type": {"type": "string"}
+        },
+        "required": ["text", "bbox"]
+      }
+    },
+    "tables": {
+      "type": "array",
+      "description": "Direct output from PaddleOCR-VL table recognition",
+      "items": {
+        "type": "object",
+        "properties": {
+          "table_html": {"type": "string"},
+          "bbox": {
+            "type": "array",
+            "items": {"type": "integer"},
+            "minItems": 4,
+            "maxItems": 4
+          }
+        },
+        "required": ["table_html", "bbox"]
+      }
+    },
+    "engineering_entities": {
+      "type": "array",
+      "description": "TO BE EXTRACTED BY FUTURE ENGINEERING-CV (Symbols, Equipment, Instruments)",
+      "items": {
+        "type": "object",
+        "properties": {
+          "entity_id": {"type": "string"},
+          "class": {"type": "string"},
+          "tag": {"type": "string"},
+          "bbox": {
+            "type": "array",
+            "items": {"type": "integer"},
+            "minItems": 4,
+            "maxItems": 4
+          },
+          "confidence": {"type": "number"}
+        },
+        "required": ["entity_id", "class", "bbox", "confidence"]
+      }
+    },
+    "connections": {
+      "type": "array",
+      "description": "TO BE EXTRACTED BY FUTURE ENGINEERING-CV (Pipes, Signal Lines, Electrical Wires)",
+      "items": {
+        "type": "object",
+        "properties": {
+          "connection_id": {"type": "string"},
+          "source_entity_id": {"type": "string"},
+          "target_entity_id": {"type": "string"},
+          "line_type": {"type": "string"},
+          "flow_direction": {
+            "type": "string",
+            "enum": ["FORWARD", "REVERSE", "BIDIRECTIONAL", "UNKNOWN"]
+          },
+          "polyline_points": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": {"type": "integer"},
+              "minItems": 2,
+              "maxItems": 2
+            }
+          }
+        },
+        "required": ["connection_id", "source_entity_id", "target_entity_id", "flow_direction"]
+      }
+    },
+    "dimensions": {
+      "type": "array",
+      "description": "TO BE EXTRACTED BY FUTURE CV (Associating OCR text callout to leader/witness lines)",
+      "items": {
+        "type": "object",
+        "properties": {
+          "value": {"type": "string"},
+          "target_feature_id": {"type": "string"},
+          "leader_line_coords": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": {"type": "integer"}
+            }
+          }
+        },
+        "required": ["value"]
+      }
+    },
+    "evidence": {
+      "type": "array",
+      "description": "Raw PaddleOCR-VL model evidence supporting the extracted document elements",
+      "items": {
+        "type": "object"
+      }
+    }
+  }
+}

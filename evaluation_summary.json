@@ -1,0 +1,88 @@
+[
+  {
+    "image_id": "Image 1",
+    "filename": "ocrt1.png",
+    "resolution": "934x1248",
+    "layout_labels": [
+      "figure_title",
+      "image",
+      "table"
+    ],
+    "tables_found": 0,
+    "text_blocks_default": 3,
+    "text_blocks_image_block": 3,
+    "text_length_default": 745,
+    "text_length_image_block": 1158,
+    "default_time_sec": 25.96,
+    "image_block_time_sec": 83.12
+  },
+  {
+    "image_id": "Image 2",
+    "filename": "ocrt2.png",
+    "resolution": "952x1086",
+    "layout_labels": [
+      "figure_title",
+      "image",
+      "table"
+    ],
+    "tables_found": 0,
+    "text_blocks_default": 3,
+    "text_blocks_image_block": 3,
+    "text_length_default": 502,
+    "text_length_image_block": 697,
+    "default_time_sec": 15.87,
+    "image_block_time_sec": 43.8
+  },
+  {
+    "image_id": "Image 3",
+    "filename": "ocrt3.png",
+    "resolution": "974x1310",
+    "layout_labels": [
+      "figure_title",
+      "image",
+      "table"
+    ],
+    "tables_found": 0,
+    "text_blocks_default": 3,
+    "text_blocks_image_block": 3,
+    "text_length_default": 717,
+    "text_length_image_block": 1302,
+    "default_time_sec": 24.44,
+    "image_block_time_sec": 89.43
+  },
+  {
+    "image_id": "Image 4",
+    "filename": "ocrt4.png",
+    "resolution": "1650x1416",
+    "layout_labels": [
+      "figure_title",
+      "image",
+      "vision_footnote"
+    ],
+    "tables_found": 0,
+    "text_blocks_default": 2,
+    "text_blocks_image_block": 2,
+    "text_length_default": 106,
+    "text_length_image_block": 517,
+    "default_time_sec": 6.13,
+    "image_block_time_sec": 194.0
+  },
+  {
+    "image_id": "Image 5",
+    "filename": "ocrt5.png",
+    "resolution": "886x912",
+    "layout_labels": [
+      "figure_title",
+      "inline_formula",
+      "table",
+      "vision_footnote"
+    ],
+    "tables_found": 0,
+    "text_blocks_default": 3,
+    "text_blocks_image_block": 3,
+    "text_length_default": 2107,
+    "text_length_image_block": 2107,
+    "default_time_sec": 94.89,
+    "image_block_time_sec": 96.19
+  }
+]

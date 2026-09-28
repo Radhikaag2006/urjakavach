@@ -28,3 +28,25 @@ models/
 # Editor and operating-system files
 .DS_Store
 Thumbs.db
+
+# CV pipeline datasets and generated results
+datasets/
+results/
+
+# Large trained model weights
+*.pt
+*.pth
+
+# Local CV Python environment
+.venv-paddle-vl/
+
+# CV pipeline datasets and generated results
+datasets/
+results/
+
+# Large trained model weights
+*.pt
+*.pth
+
+# Local CV Python environment
+.venv-paddle-vl/

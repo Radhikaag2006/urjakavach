@@ -26,6 +26,32 @@ transformers
 torch
 scipy
 
+# Computer Vision / Engineering Drawing Pipeline
+
+numpy
+
+pandas
+
+opencv-contrib-python
+
+torchvision
+
+ultralytics
+
+scikit-learn
+
+networkx
+
+shapely
+
+matplotlib
+
+paddleocr
+
+paddlepaddle
+
+paddlex
+
 # Tests
 pytest
 httpx

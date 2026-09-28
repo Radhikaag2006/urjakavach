@@ -1,0 +1,34 @@
+[
+  {
+    "component": "object_detector",
+    "model_name": "UrjaKavach-MorphGeometric-Detector-v1",
+    "detected_count": 615,
+    "latency_ms": 76.0,
+    "peak_memory_mb": 1094.62,
+    "accuracy": {}
+  },
+  {
+    "component": "object_detector",
+    "model_name": "TransformerDetector(rt_detr_r50)",
+    "detected_count": 0,
+    "latency_ms": 0.0,
+    "peak_memory_mb": 1094.62,
+    "accuracy": {}
+  },
+  {
+    "component": "geometry_extractor",
+    "model_name": "OpenCV-LSD-Deterministic",
+    "total_lines_extracted": 1613,
+    "orthogonal_lines": 453,
+    "junctions_found": 1397,
+    "latency_ms": 155.35
+  },
+  {
+    "component": "geometry_extractor",
+    "model_name": "DeepLSD-Learned",
+    "total_lines_extracted": 1613,
+    "orthogonal_lines": 453,
+    "junctions_found": 1397,
+    "latency_ms": 205.69
+  }
+]
