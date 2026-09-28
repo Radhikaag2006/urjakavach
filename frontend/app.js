@@ -440,7 +440,7 @@ async function downloadDeliverable(url, filename) {
     a.href = URL.createObjectURL(blob);
     a.download = filename || "deliverable";
     a.click();
-    URL.revokeObjectURL(a.href);
+    setTimeout(() => URL.revokeObjectURL(a.href), 500);
   } catch (err) {
     console.error("Deliverable download failed:", err);
     alert(`Download failed: ${err.message}`);
@@ -483,7 +483,7 @@ function downloadSnippet(id, filename) {
   a.href = URL.createObjectURL(blob);
   a.download = filename || "solution.py";
   a.click();
-  URL.revokeObjectURL(a.href);
+  setTimeout(() => URL.revokeObjectURL(a.href), 500);
 }
 
 async function runSnippetInSandbox(id, terminalId) {
@@ -537,7 +537,7 @@ function exportMessageMarkdown(msgId) {
   a.href = URL.createObjectURL(blob);
   a.download = `UrjaKavach_Deliverable_${Date.now().toString().slice(-4)}.md`;
   a.click();
-  URL.revokeObjectURL(a.href);
+  setTimeout(() => URL.revokeObjectURL(a.href), 500);
 }
 
 function formatDeliverableMarkdown(text, msgId) {

@@ -50,16 +50,16 @@ PYTHON_EXECUTABLE = sys.executable
 USE_REAL_MODEL = os.getenv("USE_REAL_MODEL", "false").strip().lower() == "true"
 
 REASONING_MODEL_URL = os.getenv(
-    "REASONING_MODEL_URL", "http://localhost:8080/v1/chat/completions"
+    "REASONING_MODEL_URL", "http://127.0.0.1:8080/v1/chat/completions"
 )
 CODE_MODEL_URL = os.getenv(
-    "CODE_MODEL_URL", "http://localhost:8081/v1/chat/completions"
+    "CODE_MODEL_URL", "http://127.0.0.1:8081/v1/chat/completions"
 )
 
 REASONING_MODEL_NAME = os.getenv("REASONING_MODEL_NAME", "Llama-3.2-3B-Instruct")
 CODE_MODEL_NAME = os.getenv("CODE_MODEL_NAME", "Qwen2.5-Coder-1.5B-Instruct")
 
-MODEL_TIMEOUT_SEC = int(os.getenv("MODEL_TIMEOUT_SEC", "120"))
+MODEL_TIMEOUT_SEC = int(os.getenv("MODEL_TIMEOUT_SEC", "600"))
 MODEL_MAX_TOKENS = int(os.getenv("MODEL_MAX_TOKENS", "384"))
 # Spoken replies are read aloud end-to-end (LLM generation, then TTS
 # synthesis, both sequential); capping them shorter than typed-chat
