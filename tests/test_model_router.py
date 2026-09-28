@@ -49,6 +49,25 @@ class TestStubFallback:
         assert len(findings) > 0
         assert source in ("model", "stub")
 
+    def test_document_request_fallback_understands_hindi(self, monkeypatch):
+        monkeypatch.setattr(config, "USE_REAL_MODEL", False)
+        message = "जो जानकारी मिली है उसे एक दस्तावेज़ बनाकर दे दीजिए ताकि मैं डाउनलोड कर सकूँ।"
+        assert model_router.wants_downloadable_document(message) is True
+
+    def test_document_request_fallback_ignores_analysis_only(self, monkeypatch):
+        monkeypatch.setattr(config, "USE_REAL_MODEL", False)
+        assert model_router.wants_downloadable_document("Summarize this PDF for me") is False
+
+    def test_document_request_uses_model_for_other_languages(self, monkeypatch):
+        from unittest.mock import patch
+
+        monkeypatch.setattr(config, "USE_REAL_MODEL", True)
+        with patch("app.model_router._call_model", return_value="YES") as call_model:
+            assert model_router.wants_downloadable_document(
+                "Veuillez préparer un fichier téléchargeable avec ces informations."
+            ) is True
+        assert call_model.call_args.args[0] == "reasoning"
+
     def test_code_stub_returns_runnable_code(self):
         code, source = model_router.generate_code("compute the average of numbers")
         assert "average" in code

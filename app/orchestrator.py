@@ -22,7 +22,7 @@ from .activity_log import log_step
 from .tools.ocr_tool import ocr_image
 from .tools.doc_extractor import extract_file_content
 from .tools.sandbox_tool import run_in_sandbox
-from .tools.docgen_tool import draft_approval_note
+from .tools.docgen_tool import draft_approval_note, generate_summary_document
 from .tools.deliverable_builder import generate_presentation, generate_spreadsheet, parse_tabular_data
 from .tools.kb_tool import retrieve_context
 from . import chat_store
@@ -407,7 +407,9 @@ def run_chat_flow(
     should_ppt = any(k in msg_lower for k in ppt_triggers)
     should_excel = any(k in msg_lower for k in excel_triggers)
     should_csv = any(k in msg_lower for k in csv_triggers)
-    should_docx = any(k in msg_lower for k in docx_triggers) or (
+    can_generate_docx = permitted_tools is None or "docgen_tool" in permitted_tools
+    semantic_doc_request = bool(all_session_docs or effective_attachments) and can_generate_docx and model_router.wants_downloadable_document(message)
+    should_docx = semantic_doc_request or any(k in msg_lower for k in docx_triggers) or (
         not (should_ppt or should_excel or should_csv) and any(k in msg_lower for k in ["report", "deliverable"])
     )
 
@@ -419,12 +421,14 @@ def run_chat_flow(
         if "docgen_tool" not in permitted_tools:
             should_docx = False
 
+    source_doc_name = (
+        effective_attachments[0].get("name")
+        if effective_attachments
+        else (all_session_docs[0].get("source_name") if all_session_docs else "Technical_Report")
+    )
+    generate_chat_document = False
+
     if should_ppt or should_excel or should_csv or should_docx:
-        source_doc_name = (
-            effective_attachments[0].get("name")
-            if effective_attachments
-            else (all_session_docs[0].get("source_name") if all_session_docs else "Technical_Report")
-        )
         if not all_findings and combined_attached_text:
             extracted_f, _ = model_router.summarize_findings(combined_attached_text)
             all_findings.extend(extracted_f)
@@ -447,7 +451,7 @@ def run_chat_flow(
                 "output_file": doc_filename,
                 "document_path": os.path.join(config.OUTPUTS_DIR, doc_filename),
                 "download_url": f"/api/download/{doc_filename}",
-                "file_type": "pptx",
+                "file_type": os.path.splitext(doc_filename)[1].lstrip(".").lower(),
                 "findings": all_findings,
                 "title": pres_data.get("title", "Presentation"),
             }
@@ -478,25 +482,32 @@ def run_chat_flow(
                 "title": tbl_data.get("title", "Dataset"),
             }
         else:
-            log_step(
-                task_id, "tool:file_write",
-                "Autonomous deliverable generation: drafting approval note (.docx)",
+            approval_note_triggers = (
+                "approval note", "draft note", "formal note", "generate approval",
             )
-            doc_path = draft_approval_note(source_doc_name, all_findings, task_id)
-            doc_filename = os.path.basename(doc_path)
-            doc_deliverable = {
-                "output_file": doc_filename,
-                "document_path": doc_path,
-                "download_url": f"/api/download/{doc_filename}",
-                "file_type": "docx",
-                "findings": all_findings,
-            }
+            if any(trigger in msg_lower for trigger in approval_note_triggers):
+                log_step(
+                    task_id, "tool:file_write",
+                    "Autonomous deliverable generation: drafting approval note (.docx)",
+                )
+                doc_path = draft_approval_note(source_doc_name, all_findings, task_id)
+                doc_filename = os.path.basename(doc_path)
+                doc_deliverable = {
+                    "output_file": doc_filename,
+                    "document_path": doc_path,
+                    "download_url": f"/api/download/{doc_filename}",
+                    "file_type": "docx",
+                    "findings": all_findings,
+                }
+            else:
+                generate_chat_document = True
 
-        combined_attached_text += (
-            f"\n\n### [GENERATED DELIVERABLE]\n"
-            f"An official {doc_deliverable.get('file_type', 'document').upper()} deliverable was generated: '{doc_filename}'. "
-            f"Download available at: {doc_deliverable['download_url']}\n"
-        )
+        if doc_deliverable:
+            combined_attached_text += (
+                f"\n\n### [GENERATED DELIVERABLE]\n"
+                f"An official {doc_deliverable.get('file_type', 'document').upper()} deliverable was generated: '{doc_filename}'. "
+                f"Download available at: {doc_deliverable['download_url']}\n"
+            )
 
     log_step(
         task_id, "route",
@@ -517,6 +528,28 @@ def run_chat_flow(
         documents=all_session_docs,
         detected_language=detected_language,
     )
+
+    if generate_chat_document:
+        doc_path = generate_summary_document(
+            source_doc_name,
+            reply,
+            all_findings,
+            task_id,
+        )
+        doc_filename = os.path.basename(doc_path)
+        doc_deliverable = {
+            "output_file": doc_filename,
+            "document_path": doc_path,
+            "download_url": f"/api/download/{doc_filename}",
+            "file_type": "docx",
+            "findings": all_findings,
+        }
+        log_step(
+            task_id, "tool:file_write",
+            "Generated downloadable Word summary from the document analysis",
+            {"path": doc_filename},
+        )
+
     log_step(
         task_id, "tool:reasoning",
         "Generated chat reply", {"source": source},

@@ -62,7 +62,9 @@ def generate_presentation(
 
     if not HAS_PPTX:
         # Fallback: create markdown-formatted presentation text
-        with open(output_path.replace(".pptx", ".txt"), "w", encoding="utf-8") as f:
+        filename = filename.replace(".pptx", ".txt")
+        output_path = os.path.join(config.OUTPUTS_DIR, filename)
+        with open(output_path, "w", encoding="utf-8") as f:
             f.write(f"# {title}\n## {subtitle}\n\n")
             for s in slides_list:
                 f.write(f"### {s.get('header', 'Slide')}\n")

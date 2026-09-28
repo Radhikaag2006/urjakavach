@@ -84,3 +84,46 @@ def draft_approval_note(source_name: str, findings: list[str], task_id: str) -> 
     out_path = os.path.join(config.OUTPUTS_DIR, f"approval_note_{task_id}.docx")
     doc.save(out_path)
     return out_path
+
+
+def generate_summary_document(
+    source_name: str,
+    summary: str,
+    findings: list[str],
+    task_id: str,
+) -> str:
+    """Write a general-purpose Word report from a chat summary and findings."""
+    doc = Document()
+    clean_source = _clean_xml_string(source_name)
+    title = os.path.splitext(os.path.basename(clean_source))[0] or "Document Summary"
+    doc.add_heading(title, level=0)
+    doc.add_paragraph(f"Prepared from: {clean_source}")
+    doc.add_heading("Summary", level=1)
+
+    for line in summary.splitlines():
+        text = line.strip()
+        if not text:
+            continue
+        heading = re.match(r"^(#{1,3})\s+(.*)$", text)
+        bullet = re.match(r"^[-*•]\s+(.*)$", text)
+        if heading:
+            heading_text = re.sub(r"\*\*(.*?)\*\*", r"\1", heading.group(2))
+            doc.add_heading(heading_text, level=min(len(heading.group(1)) + 1, 3))
+        elif bullet:
+            bullet_text = re.sub(r"\*\*(.*?)\*\*", r"\1", bullet.group(1))
+            doc.add_paragraph(bullet_text, style="List Bullet")
+        else:
+            plain_text = re.sub(r"\*\*(.*?)\*\*", r"\1", text)
+            doc.add_paragraph(plain_text)
+
+    clean_findings = [_clean_xml_string(finding) for finding in findings]
+    clean_findings = [finding for finding in clean_findings if finding]
+    if clean_findings:
+        doc.add_heading("Extracted Findings", level=1)
+        for finding in clean_findings:
+            doc.add_paragraph(finding, style="List Bullet")
+
+    os.makedirs(config.OUTPUTS_DIR, exist_ok=True)
+    out_path = os.path.join(config.OUTPUTS_DIR, f"UrjaKavach_Summary_{task_id}.docx")
+    doc.save(out_path)
+    return out_path

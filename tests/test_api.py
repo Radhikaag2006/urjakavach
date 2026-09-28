@@ -3,6 +3,10 @@ API-layer tests — every endpoint, end to end, without a running server.
 Run: pytest -v
 """
 import pytest
+from io import BytesIO
+
+import pytest
+from docx import Document
 from fastapi.testclient import TestClient
 
 from app.main import app
@@ -332,6 +336,60 @@ class TestChatDocumentMemory:
         dl_res = client.get(f"/api/outputs/{doc_res['output_file']}")
         assert dl_res.status_code == 200
         assert dl_res.content[:2] == b"PK"
+
+    def test_unified_chat_generates_downloadable_docx_for_hindi_request(self, monkeypatch):
+        """A Hindi request for a document generates a real downloadable Word file."""
+        from app import config
+
+        monkeypatch.setattr(config, "USE_REAL_MODEL", False)
+        source_text = b"Tender Number: 3200000481\nCompany: MRPL Mangalore\nPages: 33"
+        res = client.post(
+            "/api/chat",
+            data={"message": "जो जानकारी मिली है उसे डाउनलोड करने के लिए एक दस्तावेज़ बनाकर दे दीजिए।"},
+            files={"file": ("tender.txt", source_text, "text/plain")},
+            headers=_AUTH_HEADERS,
+        )
+
+        assert res.status_code == 200
+        doc_res = res.json().get("doc_result")
+        assert doc_res is not None
+        assert doc_res["output_file"].endswith(".docx")
+
+        download = client.get(doc_res["download_url"])
+        assert download.status_code == 200
+        assert download.content[:2] == b"PK"
+        generated_doc = Document(BytesIO(download.content))
+        generated_text = "\n".join(paragraph.text for paragraph in generated_doc.paragraphs)
+        assert "3200000481" in generated_text
+        assert "MRPL Mangalore" in generated_text
+
+    def test_unified_chat_presentation_link_downloads_real_pptx(self, monkeypatch):
+        from app import config, model_router
+
+        monkeypatch.setattr(config, "USE_REAL_MODEL", False)
+        monkeypatch.setattr(
+            model_router,
+            "generate_presentation_content",
+            lambda topic, context="", findings=None: (
+                {"title": "Tender Summary", "slides": [{"header": "Key Facts", "points": ["Tender 3200000481"]}]},
+                "stub",
+            ),
+        )
+        res = client.post(
+            "/api/chat",
+            data={"message": "Create a PowerPoint presentation from this report"},
+            files={"file": ("tender.txt", b"Tender Number: 3200000481", "text/plain")},
+            headers=_AUTH_HEADERS,
+        )
+
+        assert res.status_code == 200
+        doc_res = res.json().get("doc_result")
+        assert doc_res["file_type"] == "pptx"
+        assert doc_res["output_file"].endswith(".pptx")
+
+        download = client.get(doc_res["download_url"])
+        assert download.status_code == 200
+        assert download.content[:2] == b"PK"
 
     def test_universal_file_upload_tabular_csv(self):
         """Universal file upload cleanly parses spreadsheets (.csv) and stores tabular structure in memory."""

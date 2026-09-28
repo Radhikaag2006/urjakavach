@@ -8,6 +8,7 @@ import pytest
 from app import config
 from app.tools.sandbox_tool import run_in_sandbox
 from app.tools.docgen_tool import draft_approval_note, _infer_severity
+from app.tools import deliverable_builder
 
 
 class TestSandbox:
@@ -60,6 +61,35 @@ class TestDocGen:
         assert _infer_severity(["corrosion noted on segment"]) == "Major"
         assert _infer_severity(["gasket shows wear"]) == "Minor"
         assert _infer_severity(["readings were nominal"]) == "Observation"
+
+
+class TestPresentationGeneration:
+    def test_generates_real_downloadable_pptx(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(config, "OUTPUTS_DIR", str(tmp_path))
+
+        filename = deliverable_builder.generate_presentation(
+            {"title": "Tender Summary", "slides": [{"header": "Key Facts", "points": ["Tender 3200000481"]}]},
+            task_id="pptx-test",
+        )
+
+        assert filename == "UrjaKavach_Presentation_pptx-test.pptx"
+        output_path = tmp_path / filename
+        assert output_path.exists()
+        assert output_path.read_bytes()[:2] == b"PK"
+
+    def test_missing_pptx_dependency_returns_downloadable_text_file(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(config, "OUTPUTS_DIR", str(tmp_path))
+        monkeypatch.setattr(deliverable_builder, "HAS_PPTX", False)
+
+        filename = deliverable_builder.generate_presentation(
+            {"title": "Tender Summary", "slides": [{"header": "Key Facts", "points": ["Tender 3200000481"]}]},
+            task_id="fallback-test",
+        )
+
+        assert filename == "UrjaKavach_Presentation_fallback-test.txt"
+        output_path = tmp_path / filename
+        assert output_path.exists()
+        assert "Tender 3200000481" in output_path.read_text(encoding="utf-8")
 
 
 class TestOCR:

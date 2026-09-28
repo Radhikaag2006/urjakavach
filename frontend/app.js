@@ -569,10 +569,14 @@ function renderDeliverablesHtml(codeResult, docResult, msgId, findings) {
       typeLabel = "Raw Tabular Dataset for data science & analytics";
       icon = "&#128203;";
       btnText = "Download .csv";
-    } else {
+    } else if (fileType === "docx") {
       typeLabel = "Official Word Document (.docx) formatted for formal review";
       icon = "&#128196;";
       btnText = "Download .docx";
+    } else {
+      typeLabel = "Generated text deliverable";
+      icon = "&#128196;";
+      btnText = `Download .${escapeHtml(fileType)}`;
     }
 
     html += `

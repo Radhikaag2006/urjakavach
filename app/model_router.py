@@ -185,6 +185,54 @@ def chat(
     ), "stub"
 
 
+def wants_downloadable_document(message: str) -> bool:
+    """Detect a request to turn the current document context into a file."""
+    if not message.strip():
+        return False
+
+    if config.USE_REAL_MODEL:
+        try:
+            raw = _call_model(
+                "reasoning",
+                [
+                    {
+                        "role": "system",
+                        "content": (
+                            "Classify whether the user's latest message explicitly asks "
+                            "you to create or export a NEW downloadable document from "
+                            "the attached or discussed material. The user may write in "
+                            "any language. Answer exactly YES or NO. Say YES for a "
+                            "Word/PDF report, document, or file they can download/read. "
+                            "Say NO for analysis alone, general discussion, or asking "
+                            "how to download the original uploaded file."
+                        ),
+                    },
+                    {"role": "user", "content": message},
+                ],
+                max_tokens=8,
+            )
+            verdict = re.match(r"\s*(YES|NO)\b", raw, re.IGNORECASE)
+            if verdict:
+                return verdict.group(1).upper() == "YES"
+        except Exception:  # noqa: BLE001 - use phrase matching if model is offline
+            pass
+
+    lowered = message.lower()
+    artifact_terms = (
+        "document", "docx", "word", "pdf", "file", "दस्तावेज", "डॉक्यूमेंट",
+        "डॉक्युमेंट", "फ़ाइल", "फाइल", "ಪಿಡಿಎಫ್", "ಡಾಕ್ಯುಮೆಂಟ್", "ಫೈಲ್",
+    )
+    action_terms = (
+        "create", "generate", "make", "prepare", "export", "convert",
+        "save as", "give me", "provide", "put this in", "downloadable",
+        "बना", "बनाकर", "तैयार", "दे सकते", "दे दीजिए", "दे दो", "फॉर्मेट में",
+        "ಮಾಡಿ", "ತಯಾರಿಸಿ", "ಕೊಡಿ", "ಡೌನ್‌ಲೋಡ್ ಮಾಡಿ", "ಡೌನ್ಲೋಡ್ ಮಾಡಿ",
+    )
+    return any(term in lowered for term in artifact_terms) and any(
+        term in lowered for term in action_terms
+    )
+
+
 def _extract_json_dict(raw: str) -> dict:
     """Extract first valid JSON object from model output."""
     raw = raw.strip()
