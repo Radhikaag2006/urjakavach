@@ -351,7 +351,7 @@ function addMessageBubble(role, html) {
   const wrap = document.createElement("div");
   wrap.className = "msg msg-" + role;
   wrap.innerHTML =
-    '<div class="msg-avatar">' + (role === "user" ? (currentUserProfile.name || "U").charAt(0).toUpperCase() : "⚡") + "</div>" +
+    '<div class="msg-avatar">' + (role === "user" ? (currentUserProfile.name || "U").charAt(0).toUpperCase() : "") + "</div>" +
     '<div class="msg-body">' + html + "</div>";
   const container = document.getElementById("chatMessages");
   container.appendChild(wrap);
@@ -440,7 +440,7 @@ async function downloadDeliverable(url, filename) {
     a.href = URL.createObjectURL(blob);
     a.download = filename || "deliverable";
     a.click();
-    URL.revokeObjectURL(a.href);
+    setTimeout(() => URL.revokeObjectURL(a.href), 500);
   } catch (err) {
     console.error("Deliverable download failed:", err);
     alert(`Download failed: ${err.message}`);
@@ -483,7 +483,7 @@ function downloadSnippet(id, filename) {
   a.href = URL.createObjectURL(blob);
   a.download = filename || "solution.py";
   a.click();
-  URL.revokeObjectURL(a.href);
+  setTimeout(() => URL.revokeObjectURL(a.href), 500);
 }
 
 async function runSnippetInSandbox(id, terminalId) {
@@ -507,7 +507,7 @@ async function runSnippetInSandbox(id, terminalId) {
     const isOk = data.ok;
     const output = data.stdout || (data.stderr ? "Stderr:\n" + data.stderr : "(No stdout returned)");
     terminal.innerHTML = `
-      <div class="cmd-line">$ python -u task.py <span style="float:right;font-size:10.5px;color:${isOk ? '#4ade80' : '#f87171'}">${isOk ? '✓ Exit 0' : '✗ Failed'}</span></div>
+      <div class="cmd-line">$ python -u task.py <span style="float:right;font-size:10.5px;color:${isOk ? '#4ade80' : '#f87171'}">${isOk ? ' Exit 0' : '✗ Failed'}</span></div>
       <div>${escapeHtml(output)}</div>
     `;
   } catch (err) {
@@ -537,7 +537,7 @@ function exportMessageMarkdown(msgId) {
   a.href = URL.createObjectURL(blob);
   a.download = `UrjaKavach_Deliverable_${Date.now().toString().slice(-4)}.md`;
   a.click();
-  URL.revokeObjectURL(a.href);
+  setTimeout(() => URL.revokeObjectURL(a.href), 500);
 }
 
 function formatDeliverableMarkdown(text, msgId) {
@@ -777,7 +777,7 @@ async function sendChatMessage() {
     currentSessionId = data.session_id;
 
     const agentTag = (data.agent && data.agent.name)
-      ? '<span class="tag" style="background:rgba(78,201,176,0.18);color:#4ec9b0;border-color:rgba(78,201,176,0.4);">🤖 ' + escapeHtml(data.agent.name) + '</span>'
+      ? '<span class="tag" style="background:rgba(78,201,176,0.18);color:#4ec9b0;border-color:rgba(78,201,176,0.4);"> ' + escapeHtml(data.agent.name) + '</span>'
       : '';
     const sourceTag = data.source === "model"
       ? '<span class="tag tag-ok">local model</span>'
@@ -837,7 +837,7 @@ function startNewChat() {
     <h2 class="radiant-text">How can I help you today, ${firstName}?</h2>
     <p style="color: var(--text-dim); font-size: 16px; margin-bottom: 40px; line-height: 1.5;">Your enterprise AI assistant for intelligent work, information and productivity.</p>
   ` : `
-    <h2 class="radiant-text" style="font-size: 28px;">Hello, ${firstName}</h2>
+    <h2 style="font-size: 28px; color: #4285f4; font-weight: 500;">Hello, ${firstName}</h2>
   `;
 
   document.getElementById("chatMessages").innerHTML = `
@@ -1231,7 +1231,7 @@ function renderAgentGrid(agents, searchResults = null) {
         <div class="agent-card-footer">
           ${scoreHtml || '<span style="font-size:11px;color:var(--text-dim);">' + (ag.model_type || 'reasoning') + ' model</span>'}
           <button class="btn-launch-agent ${isCurrent ? 'active-agent-btn' : ''}" onclick="selectAgent('${ag.id}', true)">
-            ${isCurrent ? '✓ Active Agent' : 'Launch Agent ⚡'}
+            ${isCurrent ? ' Active Agent' : 'Launch Agent '}
           </button>
         </div>
       </div>
@@ -1303,7 +1303,7 @@ function selectAgent(agentId, closeModalAfter = true) {
     const chipsContainer = emptyState.querySelector(".prompt-chips");
     if (chipsContainer) {
       chipsContainer.innerHTML = ag.starter_prompts.map(p => 
-        `<button class="chip" onclick="quickPrompt('${escapeHtml(p)}')">⚡ ${escapeHtml(p)}</button>`
+        `<button class="chip" onclick="quickPrompt('${escapeHtml(p)}')"> ${escapeHtml(p)}</button>`
       ).join("");
     }
   }
@@ -1388,7 +1388,7 @@ async function draftSkillWithAi() {
   const draftBtn = document.getElementById("btnAiDraftSkill");
   const origText = draftBtn.textContent;
   draftBtn.disabled = true;
-  draftBtn.textContent = "⏳ Drafting SKILL.md with Meta-Agent...";
+  draftBtn.textContent = " Drafting SKILL.md with Meta-Agent...";
 
   const useCaseList = ucs.split(",").map(s => s.trim()).filter(Boolean);
 
@@ -1449,7 +1449,7 @@ async function handleOnboardSubmit(event) {
 
   const submitBtn = document.getElementById("btnSubmitOnboard");
   submitBtn.disabled = true;
-  submitBtn.textContent = "⏳ Onboarding Agent...";
+  submitBtn.textContent = " Onboarding Agent...";
 
   try {
     const res = await fetch(API + "/api/agents/onboard", {
@@ -1501,5 +1501,16 @@ window.toggleSidebar = function() {
   } else {
     appContainer.classList.add('sidebar-collapsed');
     openBtn.classList.remove('panel-hidden');
+  }
+};
+
+window.currentZoom = 1.0;
+window.changeZoom = function(delta) {
+  window.currentZoom += delta;
+  if(window.currentZoom < 0.6) window.currentZoom = 0.6;
+  if(window.currentZoom > 2.0) window.currentZoom = 2.0;
+  const chatMessages = document.getElementById('chatMessages');
+  if(chatMessages) {
+    chatMessages.style.zoom = window.currentZoom;
   }
 };
